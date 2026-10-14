@@ -130,16 +130,16 @@ private fun Step.headline() = when (this) {
     else -> Headline("", "", "")
 }
 
-/** 画面が変わったときの音声案内 */
-private fun Step.voice() = when (this) {
-    is Step.Dates -> "ご希望の日付を、お選びください"
-    is Step.Times -> "ご希望の時間を、お選びください"
-    is Step.People -> "ご利用人数を、お選びください"
-    is Step.Confirm -> "よろしければ、確認を、押してください"
-    is Step.Done -> "予約券を、お取りください"
-    is Step.Failure -> message
-    is Step.CallStaff -> "係員をお呼びしています。そのままお待ちください"
-    else -> ""
+/** 画面が変わったときの音声案内: 録音した声の名前（res/raw）と、無いときに音声合成で読む文 */
+private fun Step.voice(): Pair<String?, String> = when (this) {
+    is Step.Dates -> "v_date" to "ご希望の日付を、お選びください"
+    is Step.Times -> "v_time" to "ご希望の時間を、お選びください"
+    is Step.People -> "v_people" to "ご利用人数を、お選びください"
+    is Step.Confirm -> "v_confirm" to "よろしければ、確認を、押してください"
+    is Step.Done -> if (printError == null) "v_take_ticket" to "予約券を、お取りください" else null to "印刷できませんでした。この画面の予約番号を、係員にお見せください"
+    is Step.Failure -> voice to message
+    is Step.CallStaff -> voice to "係員をお呼びしています。そのままお待ちください"
+    else -> null to ""
 }
 
 /** ここまでの入力内容（日付・時間・人数） */
@@ -158,7 +158,8 @@ private fun KioskFlow(vm: KioskViewModel) {
     var summary by remember { mutableStateOf(false) }
     LaunchedEffect(step::class, (step as? Step.Failure)?.message) {
         summary = false
-        vm.voice.say(step.voice())
+        // 完了の案内は「発券しています」を言い終えてから
+        if (step !is Step.Issuing && step !is Step.Idle) step.voice().let { (name, text) -> vm.voice.play(name, text, after = step is Step.Done) }
     }
 
     if (step is Step.Idle || step is Step.NotRegistered) {
@@ -218,7 +219,9 @@ private fun KioskFlow(vm: KioskViewModel) {
                 }
             }
         }
-        vm.secondsLeft?.takeIf { it <= 10 && step !is Step.Done }?.let { ResetWarning(it) }
+        val warn = vm.secondsLeft?.takeIf { it <= 10 && step !is Step.Done }
+        LaunchedEffect(warn != null) { if (warn != null) vm.voice.play("v_timeout") }
+        warn?.let { ResetWarning(it) }
     }
 }
 
@@ -532,6 +535,7 @@ private fun IssuingScreen() {
 private fun DoneScreen(s: Step.Done, vm: KioskViewModel) {
     val r = s.reservation
     val thanks = rememberAfter(4000)
+    LaunchedEffect(thanks) { if (thanks && s.printError == null) vm.voice.play("v_thanks", after = true) }
     Column(Modifier.fillMaxSize().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         if (s.printError == null) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

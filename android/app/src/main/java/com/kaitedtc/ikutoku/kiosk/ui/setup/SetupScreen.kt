@@ -154,7 +154,7 @@ fun SetupScreen(vm: KioskViewModel, kiosk: KioskControls, onClose: () -> Unit) {
                     Switch(store.voiceGuide, { store.voiceGuide = it; vm.voice.enabled = it; refresh() })
                 }
                 Text(
-                    if (vm.voice.available) "この端末は日本語の音声合成が使えます" else "この端末には日本語の音声合成がないため、音声案内は鳴りません",
+                    if (vm.voice.available) "録音した案内が無い文は、端末の音声合成で読みます" else "録音した案内だけ鳴ります（この端末には日本語の音声合成がありません）",
                     fontSize = 12.sp,
                     color = Kiosk.DisabledText,
                 )
@@ -162,7 +162,7 @@ fun SetupScreen(vm: KioskViewModel, kiosk: KioskControls, onClose: () -> Unit) {
                     OutlinedButton(onClick = vm.sounds::beep) { Text("ピッ") }
                     OutlinedButton(onClick = vm.sounds::chime) { Text("ピンポン") }
                     OutlinedButton(onClick = vm.sounds::buzzer) { Text("ブッブー") }
-                    OutlinedButton(onClick = { vm.voice.say("予約券を、お取りください") }) { Text("声") }
+                    OutlinedButton(onClick = { vm.voice.play("v_take_ticket", "予約券を、お取りください") }) { Text("声") }
                 }
             }
 

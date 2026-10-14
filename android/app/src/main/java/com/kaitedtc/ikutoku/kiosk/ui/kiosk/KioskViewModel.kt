@@ -33,11 +33,11 @@ sealed interface Step {
     data object Issuing : Step
     data class Done(val reservation: Reservation, val printError: String?) : Step
 
-    /** 満員・通信エラーなど。back があれば「もどる」でそこへ */
-    data class Failure(val message: String, val back: (() -> Unit)? = null) : Step
+    /** 満員・通信エラーなど。back があれば「もどる」でそこへ。voice は録音した案内（res/raw）の名前 */
+    data class Failure(val message: String, val back: (() -> Unit)? = null, val voice: String? = null) : Step
 
     /** 係員をお呼びください（係員メニューに入るまで音を鳴らし続ける） */
-    data class CallStaff(val reason: String) : Step
+    data class CallStaff(val reason: String, val voice: String = "v_call_staff") : Step
     data object NotRegistered : Step
 }
 
@@ -145,7 +145,7 @@ class KioskViewModel(app: Application) : AndroidViewModel(app) {
         sounds.beep()
         load { data ->
             if (data.dates.isEmpty()) {
-                fail("ただいま予約を受け付けている日はありません。")
+                fail("ただいま予約を受け付けている日はありません。", voice = "v_err_no_dates")
             } else {
                 step = Step.Dates(data.dates)
             }
@@ -192,12 +192,13 @@ class KioskViewModel(app: Application) : AndroidViewModel(app) {
             val state = printer.state()
             if (state != SunmiPrinter.READY) {
                 // 印刷できないなら予約しない（番号を渡せないため）
-                step = Step.CallStaff("係員をお呼びください（${SunmiPrinter.stateMessage(state)}）")
+                step = Step.CallStaff("係員をお呼びください（${SunmiPrinter.stateMessage(state)}）", voice = "v_err_printer")
                 startAlarm { sounds.buzzer() }
                 return
             }
         }
         step = Step.Issuing
+        voice.play("v_issuing")
         viewModelScope.launch {
             val started = SystemClock.elapsedRealtime()
             val r = try {
@@ -205,13 +206,13 @@ class KioskViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: ApiException) {
                 when (e.status) {
                     401 -> unregistered()
-                    409 -> fail(e.userMessage()) { reloadTimes(c.slot.date) }
+                    409 -> fail(e.userMessage(), voice = if ("定員" in e.userMessage()) "v_err_full" else "v_err_stopped") { reloadTimes(c.slot.date) }
                     else -> fail(e.userMessage()) { step = Step.People(c.slot) }
                 }
                 return@launch
             } catch (e: IOException) {
                 // 送ったあとで切れた: 予約できたか分からない
-                step = Step.CallStaff("予約できたか確認できませんでした。係員にお知らせください。")
+                step = Step.CallStaff("予約できたか確認できませんでした。係員にお知らせください。", voice = "v_err_unknown")
                 startAlarm { sounds.buzzer() }
                 return@launch
             }
@@ -274,17 +275,17 @@ class KioskViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: ApiException) {
                 if (e.status == 401) unregistered() else fail(e.userMessage())
             } catch (e: IOException) {
-                fail(e.userMessage())
+                fail(e.userMessage(), voice = "v_err_network")
             } finally {
                 loading = false
             }
         }
     }
 
-    private fun fail(message: String, back: (() -> Unit)? = null) {
+    private fun fail(message: String, voice: String? = null, back: (() -> Unit)? = null) {
         sounds.buzzer()
         touched()
-        step = Step.Failure(message, back)
+        step = Step.Failure(message, back, voice)
     }
 
     /** 管理画面で無効化された（または未登録）。トークンを捨てて係員メニューからの登録を待つ */
