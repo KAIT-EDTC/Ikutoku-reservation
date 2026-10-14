@@ -1,9 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ikutoku-reservation",
-  "main": "src/index.ts",
+  "main": "server/index.ts",
   "compatibility_date": "2026-10-01",
   "routes": [{ "pattern": "fes.kaitedtc.com", "custom_domain": true }],
+  // The React app (web/) is served as static assets; only /api/* reaches the Worker.
+  "assets": { "not_found_handling": "single-page-application", "run_worker_first": ["/api/*"] },
   "d1_databases": [
     {
       "binding": "DB",

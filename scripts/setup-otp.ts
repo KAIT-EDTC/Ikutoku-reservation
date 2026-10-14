@@ -3,7 +3,7 @@
 // Old codes stop working and all admin sessions are logged out.
 import { execFileSync } from 'node:child_process'
 import { renderUnicodeCompact } from 'uqr'
-import { newTotpSecret, otpauthUri } from '../src/lib.ts'
+import { newTotpSecret, otpauthUri } from '../server/auth.ts'
 
 const secret = newTotpSecret()
 const sql = `INSERT INTO admins (login_id, totp_secret) VALUES ('admin', '${secret}')
