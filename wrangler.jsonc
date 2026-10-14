@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ikutoku-reservation",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "routes": [{ "pattern": "fes.kaitedtc.com", "custom_domain": true }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ikutoku-reservation",
+      "database_id": "f4b878a7-52e1-42c9-9291-dc6609f7f622",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
