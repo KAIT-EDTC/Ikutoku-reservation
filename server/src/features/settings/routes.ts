@@ -12,7 +12,8 @@ import { validate } from '../../lib/validator.ts'
 import { requireAdmin } from '../../middleware/auth.ts'
 import { generateSlots, getSettings } from '../slots/queries.ts'
 
-const qr = (secret: string) => ({ secret, svg: renderSVG(otpauthUri(secret)) })
+// ローカル開発（wrangler dev）では FRONTEND_URL が http://localhost になる
+const qr = (secret: string, frontendUrl: string) => ({ secret, svg: renderSVG(otpauthUri(secret, { dev: frontendUrl.startsWith('http://localhost') })) })
 
 /** 全体設定（A-05・A-09）と、ログイン用の認証アプリ */
 export const settingsRoute = new Hono<AppEnv>()
@@ -28,9 +29,9 @@ export const settingsRoute = new Hono<AppEnv>()
   // 今の秘密鍵のQR（メンバーの認証アプリに追加する用）
   .get('/otp', async (c) => {
     const admin = (await createDb(c.env).select().from(admins).where(eq(admins.id, c.get('adminId'))).get())!
-    return c.json(qr(admin.totpSecret!))
+    return c.json(qr(admin.totpSecret!, c.env.FRONTEND_URL))
   })
-  .get('/otp/new', (c) => c.json(qr(newTotpSecret())))
+  .get('/otp/new', (c) => c.json(qr(newTotpSecret(), c.env.FRONTEND_URL)))
   // 新しい秘密鍵で出したコードが合えば差し替える。古いコードとセッションはすべて無効になる
   .post('/otp', validate('json', otpResetSchema), async (c) => {
     const db = createDb(c.env)

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { newTotpSecret, totp, verifyTotp } from '../src/lib/crypto.ts'
+import { newTotpSecret, otpauthUri, totp, verifyTotp } from '../src/lib/crypto.ts'
 
 test('totp (RFC 6238 appendix B, last 6 digits)', async () => {
   const rfc = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ' // ASCII "12345678901234567890"
@@ -10,4 +10,6 @@ test('totp (RFC 6238 appendix B, last 6 digits)', async () => {
   assert.equal(await verifyTotp(rfc, '081804', 1111111109_000 + 30_000), Math.floor(1111111109 / 30)) // 1つ前のステップも受け付ける
   assert.equal(await verifyTotp(rfc, '081804', 1111111109_000 + 90_000), null)
   assert.match(newTotpSecret(), /^[A-Z2-7]{32}$/)
+  assert.match(otpauthUri('S'), /^otpauth:\/\/totp\/Ikutoku-reservation:admin\?secret=S&issuer=Ikutoku-reservation$/)
+  assert.match(otpauthUri('S', { dev: true }), /issuer=Ikutoku-reservation%20\(dev\)$/)
 })

@@ -44,8 +44,11 @@ export async function verifyTotp(secret: string, code: string, now = Date.now())
   return null
 }
 
-export const otpauthUri = (secret: string) =>
-  `otpauth://totp/Ikutoku-reservation:admin?secret=${secret}&issuer=Ikutoku-reservation`
+/** 認証アプリに出る名前。開発用は本番と見分けられるよう (dev) を付ける */
+export function otpauthUri(secret: string, { dev = false } = {}) {
+  const issuer = encodeURIComponent(dev ? 'Ikutoku-reservation (dev)' : 'Ikutoku-reservation')
+  return `otpauth://totp/${issuer}:admin?secret=${secret}&issuer=${issuer}`
+}
 
 export async function hmac(key: string, msg: string) {
   const k = await crypto.subtle.importKey('raw', enc(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])

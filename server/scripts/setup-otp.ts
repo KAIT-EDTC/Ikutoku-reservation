@@ -12,4 +12,4 @@ const sql = `INSERT INTO admins (login_id, totp_secret) VALUES ('admin', '${secr
 execFileSync('npx', ['wrangler', 'd1', 'execute', 'ikutoku-reservation', ...(remote ? ['--remote', '--env', 'production'] : ['--local']), '--command', sql], {
   stdio: ['inherit', 'ignore', 'inherit'],
 })
-console.log(`\n${renderUnicodeCompact(otpauthUri(secret))}\n手入力用キー: ${secret}\n`)
+console.log(`\n${renderUnicodeCompact(otpauthUri(secret, { dev: !remote }))}\n手入力用キー: ${secret}\n`)
