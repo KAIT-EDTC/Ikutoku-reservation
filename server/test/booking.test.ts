@@ -49,12 +49,10 @@ test('unknown or deleted slot is not_found', async () => {
   assert.deepEqual(await book({ slotId: await slot({ deleted: true }), people: 1, by: admin }), { ok: false, reason: 'not_found' })
 })
 
-test('devices cannot book blacked-out, past or out-of-period slots; admins can', async () => {
+test('devices cannot book past or out-of-period slots; admins can', async () => {
   const past = await slot({ date: '2000-01-01' })
   const outside = await slot({ date: '1999-12-31' })
-  const blocked = await slot()
-  await db.prepare("INSERT INTO blackout_rules (kind, slot_id) VALUES ('slot', ?)").bind(blocked).run()
-  for (const id of [past, outside, blocked]) {
+  for (const id of [past, outside]) {
     assert.deepEqual(await book({ slotId: id, people: 1, by: device }), { ok: false, reason: 'unavailable' })
     assert.ok((await book({ slotId: id, people: 1, by: admin })).ok)
   }

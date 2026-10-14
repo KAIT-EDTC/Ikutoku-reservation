@@ -27,8 +27,7 @@ export const slotTemplates = sqliteTable('slot_templates', {
   check('slot_templates_capacity', sql`${t.capacity} >= 0`),
 ])
 
-// `deleted` is a soft delete so regenerating from templates does not resurrect the slot.
-// Stopping a single slot is a blackout rule of kind 'slot', not a flag here.
+// deleted は論理削除（ひな形からの再生成で復活させないため）
 export const slots = sqliteTable('slots', {
   id: integer('id').primaryKey(),
   date: text('date').notNull(),
@@ -38,19 +37,6 @@ export const slots = sqliteTable('slots', {
   deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false),
   templateId: integer('template_id').references(() => slotTemplates.id, { onDelete: 'set null' }),
 }, (t) => [unique().on(t.date, t.startTime), check('slots_capacity', sql`${t.capacity} >= 0`)])
-
-export const blackoutRules = sqliteTable('blackout_rules', {
-  id: integer('id').primaryKey(),
-  kind: text('kind', { enum: ['once', 'weekly', 'monthly', 'slot'] }).notNull(),
-  dateFrom: text('date_from'),
-  dateTo: text('date_to'),
-  weekday: integer('weekday'),
-  nth: integer('nth'),
-  timeFrom: text('time_from'),
-  timeTo: text('time_to'),
-  slotId: integer('slot_id').references(() => slots.id, { onDelete: 'cascade' }),
-  memo: text('memo').notNull().default(''),
-})
 
 export const reservations = sqliteTable('reservations', {
   id: integer('id').primaryKey(),

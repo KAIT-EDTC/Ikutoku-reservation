@@ -3,11 +3,11 @@ import { nowJst, slotState } from '@ikutoku/shared'
 import { isUniqueViolation, type Db } from '../../db/index.ts'
 import { reservations, slots } from '../../db/schema.ts'
 import { audit } from '../../lib/audit.ts'
-import { getRules, getSettings, listSlots } from '../slots/queries.ts'
+import { getSettings, listSlots } from '../slots/queries.ts'
 
 /**
  * 予約する人。受付端末はすべての受付ルールに従う。管理者（代理予約）は、停止中に紙で受けた予約を後から入れられるよう
- * 受付不可・受付期間・開始済みの判定を飛ばし、overbook のときだけ定員を超えられる
+ * 受付期間・開始済みの判定を飛ばし、overbook のときだけ定員を超えられる
  */
 export type Booker = { type: 'device'; id: number } | { type: 'admin'; id: number; overbook?: boolean }
 export type BookingResult = { ok: true; code: string } | { ok: false; reason: 'not_found' | 'invalid_people' | 'unavailable' | 'full' }
@@ -22,12 +22,12 @@ export const newCode = (len = 4) =>
 /** 予約確定: 予約を作ってよいかの判定はすべてここにある */
 export async function book(db: Db, { slotId, people, by }: { slotId: number; people: number; by: Booker }): Promise<BookingResult> {
   if (!Number.isInteger(slotId)) return { ok: false, reason: 'not_found' }
-  const [s, rules, [slot]] = await Promise.all([getSettings(db), getRules(db), listSlots(db, eq(slots.id, slotId))])
+  const [s, [slot]] = await Promise.all([getSettings(db), listSlots(db, eq(slots.id, slotId))])
   if (!slot) return { ok: false, reason: 'not_found' }
   const maxPeople = by.type === 'device' ? s.maxPeople : ADMIN_MAX_PEOPLE
   if (!Number.isInteger(people) || people < 1 || people > maxPeople) return { ok: false, reason: 'invalid_people' }
   if (by.type === 'device') {
-    const st = slotState(slot, rules, s)
+    const st = slotState(slot, s)
     if (!st.bookable) return { ok: false, reason: st.status === 'full' ? 'full' : 'unavailable' }
   }
   const overbook = by.type === 'admin' && !!by.overbook

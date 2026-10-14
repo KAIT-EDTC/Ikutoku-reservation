@@ -1,16 +1,16 @@
 import { and, eq, like, notExists, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { slotInputSchema, slotState, slotStopSchema, slotUpdateSchema } from '@ikutoku/shared'
+import { slotInputSchema, slotState, slotUpdateSchema } from '@ikutoku/shared'
 import { createDb, isUniqueViolation } from '../../db/index.ts'
-import { blackoutRules, reservations, slots } from '../../db/schema.ts'
+import { reservations, slots } from '../../db/schema.ts'
 import type { AppEnv } from '../../env.ts'
 import { audit } from '../../lib/audit.ts'
 import { conflict } from '../../lib/errors.ts'
 import { validate } from '../../lib/validator.ts'
 import { requireAdmin } from '../../middleware/auth.ts'
 import { reservationRows } from '../reservations/queries.ts'
-import { getRules, getSettings, listSlots } from './queries.ts'
+import { getSettings, listSlots } from './queries.ts'
 
 const SLOT_TAKEN = 'その開始時刻のコマは既にあります'
 
@@ -20,18 +20,15 @@ export const slotsRoute = new Hono<AppEnv>()
   .get('/', validate('query', z.object({ date: z.iso.date() })), async (c) => {
     const db = createDb(c.env)
     const { date } = c.req.valid('query')
-    const [s, rules, list, rows] = await Promise.all([
+    const [s, list, rows] = await Promise.all([
       getSettings(db),
-      getRules(db),
       listSlots(db, eq(slots.date, date)),
       reservationRows(db, eq(slots.date, date)),
     ])
     return c.json({
       slots: list.map((sl) => ({
         ...sl,
-        ...slotState(sl, rules, s),
-        /** 「特定コマのみ」の受付不可ルールで止めているか */
-        stopped: rules.some((r) => r.kind === 'slot' && r.slotId === sl.id),
+        ...slotState(sl, s),
         reservations: rows.filter((r) => r.slotId === sl.id),
       })),
     })
@@ -81,18 +78,7 @@ export const slotsRoute = new Hono<AppEnv>()
     const id = Number(c.req.param('id'))
     const active = db.select({ x: sql`1` }).from(reservations).where(and(eq(reservations.slotId, id), eq(reservations.status, 'active')))
     const r = await db.update(slots).set({ deleted: true }).where(and(eq(slots.id, id), notExists(active))).run()
-    if (!r.meta.changes) throw conflict('有効な予約があるコマは削除できません。先に予約を取り消すか、コマを受付停止にしてください。')
+    if (!r.meta.changes) throw conflict('有効な予約があるコマは削除できません。先に予約を取り消してください。')
     await audit(db, 'admin', c.get('adminId'), 'slot_delete', id)
-    return c.json({ ok: true })
-  })
-  // 1コマだけ止める = 「特定コマのみ」の受付不可ルール（仕様6章）を付け外しする
-  .post('/:id/stop', validate('json', slotStopSchema), async (c) => {
-    const db = createDb(c.env)
-    const id = Number(c.req.param('id'))
-    const { stopped } = c.req.valid('json')
-    const where = and(eq(blackoutRules.kind, 'slot'), eq(blackoutRules.slotId, id))
-    if (!stopped) await db.delete(blackoutRules).where(where).run()
-    else if (!(await db.$count(blackoutRules, where))) await db.insert(blackoutRules).values({ kind: 'slot', slotId: id }).run()
-    await audit(db, 'admin', c.get('adminId'), stopped ? 'slot_stop' : 'slot_resume', id)
     return c.json({ ok: true })
   })

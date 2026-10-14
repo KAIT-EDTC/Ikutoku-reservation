@@ -4,7 +4,6 @@ import { csrf } from 'hono/csrf'
 import { HTTPException } from 'hono/http-exception'
 import type { AppEnv } from './env.ts'
 import { authRoute } from './features/auth/routes.ts'
-import { blackoutsRoute } from './features/blackouts/routes.ts'
 import { devicesRoute } from './features/devices/routes.ts'
 import { kioskRoute } from './features/kiosk/routes.ts'
 import { logsRoute } from './features/logs/routes.ts'
@@ -43,7 +42,6 @@ const routes = app
   .route('/api/admin/slots', slotsRoute)
   .route('/api/admin/reservations', reservationsRoute)
   .route('/api/admin/templates', templatesRoute)
-  .route('/api/admin/blackouts', blackoutsRoute)
   .route('/api/admin/settings', settingsRoute)
   .route('/api/admin/devices', devicesRoute)
   .route('/api/admin/logs', logsRoute)

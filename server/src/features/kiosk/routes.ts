@@ -9,7 +9,7 @@ import { badRequest, conflict } from '../../lib/errors.ts'
 import { validate } from '../../lib/validator.ts'
 import { requireDevice } from '../../middleware/auth.ts'
 import { book } from '../reservations/book.ts'
-import { eventDates, getRules, getSettings, listSlots } from '../slots/queries.ts'
+import { eventDates, getSettings, listSlots } from '../slots/queries.ts'
 
 /** 受付端末（登録済みの端末だけ）。予約の作成のみで、取消はできない（F-04） */
 export const kioskRoute = new Hono<AppEnv>()
@@ -18,14 +18,14 @@ export const kioskRoute = new Hono<AppEnv>()
   .get('/', validate('query', z.object({ date: z.iso.date().optional() })), async (c) => {
     const db = createDb(c.env)
     const { date } = c.req.valid('query')
-    const [s, rules] = await Promise.all([getSettings(db), getRules(db)])
+    const s = await getSettings(db)
     const [dates, list] = await Promise.all([eventDates(db, s), date ? listSlots(db, eq(slots.date, date)) : []])
     return c.json({
       notice: s.notice,
       maxPeople: s.maxPeople,
       resetSeconds: s.resetSeconds,
       dates: dates.filter((d) => d >= nowJst().date),
-      slots: list.map((sl) => ({ id: sl.id, date: sl.date, startTime: sl.startTime, endTime: sl.endTime, ...slotState(sl, rules, s) })),
+      slots: list.map((sl) => ({ id: sl.id, date: sl.date, startTime: sl.startTime, endTime: sl.endTime, ...slotState(sl, s) })),
     })
   })
   .post('/reservations', validate('json', reserveSchema), async (c) => {

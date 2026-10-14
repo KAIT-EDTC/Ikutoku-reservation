@@ -1,4 +1,4 @@
-import { adminReserveSchema, slotInputSchema, slotStopSchema, slotUpdateSchema } from '@ikutoku/shared'
+import { adminReserveSchema, slotInputSchema, slotUpdateSchema } from '@ikutoku/shared'
 import { api, unwrap } from '~/lib/api'
 import { catchApiError, int, submit, text } from '~/lib/form'
 
@@ -22,12 +22,6 @@ export async function dayAction(request: Request) {
       const values = { startTime: text(form, 'startTime'), endTime: text(form, 'endTime'), capacity: int(form, 'capacity') }
       return (await submit(slotUpdateSchema, values, (json) => unwrap(api.admin.slots[':id'].$put({ ...param, json })))).errors ?? { ok: true }
     }
-    case 'stop':
-      return (
-        (await submit(slotStopSchema, { stopped: text(form, 'stopped') === 'true' }, (json) => unwrap(api.admin.slots[':id'].stop.$post({ ...param, json })))).errors ?? {
-          ok: true,
-        }
-      )
     case 'delete':
       return (await catchApiError(() => unwrap(api.admin.slots[':id'].$delete(param)))).errors ?? { ok: true }
   }

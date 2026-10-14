@@ -27,7 +27,6 @@ export default [
       route('calendar', 'routes/admin/calendar.tsx'),
       route('calendar/:date', 'routes/admin/calendar-day.tsx'),
       route('templates', 'routes/admin/templates.tsx'),
-      route('blackouts', 'routes/admin/blackouts.tsx'),
       route('settings', 'routes/admin/settings.tsx'),
       route('otp', 'routes/admin/otp.tsx'),
       route('devices', 'routes/admin/devices.tsx'),

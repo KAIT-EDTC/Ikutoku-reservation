@@ -18,7 +18,7 @@ export type DayActionData = (FormErrors & { issued?: undefined }) | { issued: { 
 const row = css({ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 'sm' })
 const summary = css({ cursor: 'pointer', fontSize: 'sm', fontWeight: '600', color: 'fg.muted', py: 'xs' })
 
-/** コマごとの予約一覧と、代理予約・編集・停止・削除・追加（A-03・A-06・A-07） */
+/** コマごとの予約一覧と、代理予約・編集・削除・追加（A-03・A-06・A-07） */
 export function DayView({ date, day, actionData }: { date: string; day: Day; actionData: DayActionData }) {
   const sum = (f: (s: Day['slots'][number]) => number) => day.slots.reduce((n, s) => n + f(s), 0)
   return (
@@ -42,7 +42,7 @@ export function DayView({ date, day, actionData }: { date: string; day: Day; act
               <span className={css({ fontSize: 'sm', fontWeight: '500', color: 'fg.muted' })}>
                 予約 {sl.booked}/{sl.capacity}名（残 {sl.capacity - sl.booked}）
               </span>
-              {sl.status === 'stopped' && sl.count > 0 && <Badge tone="warning">受付停止中ですが予約{sl.count}件あり</Badge>}
+              {sl.status === 'stopped' && sl.count > 0 && <Badge tone="warning">受付期間外ですが予約{sl.count}件あり</Badge>}
               {sl.booked > sl.capacity && <Badge tone="danger">定員超過</Badge>}
             </span>
           }
@@ -73,12 +73,6 @@ export function DayView({ date, day, actionData }: { date: string; day: Day; act
                   <Button type="submit">保存</Button>
                 </Form>
                 <div className={row}>
-                  <Form method="post">
-                    <input type="hidden" name="intent" value="stop" />
-                    <input type="hidden" name="id" value={sl.id} />
-                    <input type="hidden" name="stopped" value={String(!sl.stopped)} />
-                    <Button type="submit">{sl.stopped ? 'このコマの受付を再開' : 'このコマだけ受付停止'}</Button>
-                  </Form>
                   <Form method="post" onSubmit={confirmSubmit('このコマを削除しますか？')}>
                     <input type="hidden" name="intent" value="delete" />
                     <input type="hidden" name="id" value={sl.id} />

@@ -4,7 +4,6 @@ const date = z.iso.date('日付を入力してください')
 const time = z.string().regex(/^\d{2}:\d{2}$/, '時刻を入力してください')
 const capacity = z.number().int('定員は整数にしてください').min(0, '定員は0以上にしてください').max(999, '定員が大きすぎます')
 const timeOrder = { path: ['endTime'], message: '終了時刻は開始時刻より後にしてください' }
-const memo = z.string().trim().max(100, 'メモは100文字以内にしてください')
 
 /** 管理者ログイン: 認証アプリの6桁コード */
 export const loginSchema = z.object({ code: z.string().regex(/^\d{6}$/, '6桁の数字を入力してください') })
@@ -12,7 +11,6 @@ export const loginSchema = z.object({ code: z.string().regex(/^\d{6}$/, '6桁の
 const slotFields = z.object({ startTime: time, endTime: time, capacity })
 export const slotUpdateSchema = slotFields.refine((v) => v.startTime < v.endTime, timeOrder)
 export const slotInputSchema = slotFields.extend({ date }).refine((v) => v.startTime < v.endTime, timeOrder)
-export const slotStopSchema = z.object({ stopped: z.boolean() })
 
 /** 代理予約。overbook のときだけ定員を超えて登録できる */
 export const adminReserveSchema = z.object({
@@ -25,20 +23,6 @@ export const templateInputSchema = slotFields
   .extend({ weekday: z.number().int().min(0).max(6), validFrom: date.nullable(), validTo: date.nullable() })
   .refine((v) => v.startTime < v.endTime, timeOrder)
   .refine((v) => !v.validFrom || !v.validTo || v.validFrom <= v.validTo, { path: ['validTo'], message: '適用期間の終わりは始まりより後にしてください' })
-
-/** 時間帯は両方空（終日）か、両方入力して開始 < 終了 */
-const timeRange = { timeFrom: time.nullable(), timeTo: time.nullable() }
-
-export const blackoutInputSchema = z
-  .discriminatedUnion('kind', [
-    z.object({ kind: z.literal('once'), dateFrom: date, dateTo: date, ...timeRange, memo }),
-    z.object({ kind: z.literal('weekly'), weekday: z.number().int().min(0).max(6), ...timeRange, memo }),
-    z.object({ kind: z.literal('monthly'), weekday: z.number().int().min(0).max(6), nth: z.number().int().min(1).max(5), ...timeRange, memo }),
-    z.object({ kind: z.literal('slot'), slotId: z.number().int().positive('コマを選んでください'), memo }),
-  ])
-  .refine((v) => v.kind === 'slot' || (!v.timeFrom && !v.timeTo) || (!!v.timeFrom && !!v.timeTo && v.timeFrom < v.timeTo), { path: ['timeTo'], message: '時間帯は開始・終了の両方を入力してください（または両方空欄）' })
-  .refine((v) => v.kind !== 'once' || v.dateFrom <= v.dateTo, { path: ['dateTo'], message: '終わりの日付は始まりより後にしてください' })
-export type BlackoutInput = z.infer<typeof blackoutInputSchema>
 
 export const settingsInputSchema = z
   .object({
