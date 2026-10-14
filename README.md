@@ -123,6 +123,8 @@ npm run setup-otp -- --remote      # 初回、または全員が認証アプリ�
 4. iPad はアクセスガイド、PC はブラウザのキオスクモードで固定
 5. 端末を紛失したら `/admin/devices` で無効化
 
+SUNMI V1s（レシートプリンタ付きの Android 端末）を受付端末に使う計画と手順は [docs/sunmi-v1s.md](docs/sunmi-v1s.md)。
+
 ### 補足
 
 - バックアップ: D1 の Time Travel（7日分の任意時点に復元できる）。`cd server && npx wrangler d1 time-travel restore ikutoku-reservation --env production --timestamp=<ISO日時>`
