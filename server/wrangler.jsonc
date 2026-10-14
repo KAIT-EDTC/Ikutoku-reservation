@@ -1,0 +1,49 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "ikutoku-reservation",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+
+  // ---- ローカル開発（wrangler dev）用 ------------------------------------
+  "vars": {
+    // フロントエンドのURL（CORS・CSRFで許可するオリジン）
+    "FRONTEND_URL": "http://localhost:5173"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ikutoku-reservation",
+      "database_id": "local-dev-db",
+      "migrations_dir": "drizzle"
+    }
+  ],
+
+  // ---- 本番（wrangler deploy --env production） ---------------------------
+  // 1つのWorkerで静的ファイル(client)と /api/* を同じオリジンから配信する
+  "env": {
+    "production": {
+      "name": "ikutoku-reservation",
+      // 団体(Kait.edtc)のCloudflareアカウント。個人アカウントへ誤ってデプロイしないよう固定する
+      "account_id": "f63f9ebc5db7b049a6e98a155a3d219d",
+      "workers_dev": false,
+      "routes": [{ "pattern": "fes.kaitedtc.com", "custom_domain": true }],
+      "preview_urls": false,
+      "assets": {
+        "directory": "../client/build/client",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": ["/api/*"]
+      },
+      "vars": {
+        "FRONTEND_URL": "https://fes.kaitedtc.com"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "ikutoku-reservation",
+          "database_id": "f4b878a7-52e1-42c9-9291-dc6609f7f622",
+          "migrations_dir": "drizzle"
+        }
+      ]
+    }
+  }
+}

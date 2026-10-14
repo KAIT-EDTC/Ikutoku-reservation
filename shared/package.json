@@ -1,0 +1,15 @@
+{
+  "name": "@ikutoku/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "node --experimental-strip-types --test test/*.test.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
+}
