@@ -4,7 +4,7 @@ import { css } from 'styled-system/css'
 import { Alert } from '~/components/ui/Alert'
 import { Button, ButtonLink } from '~/components/ui/Button'
 import { Card } from '~/components/ui/Card'
-import { TextareaField, TextField } from '~/components/ui/Field'
+import { Checkbox, TextareaField, TextField } from '~/components/ui/Field'
 import { PageHeader } from '~/components/ui/PageHeader'
 import { api, unwrap } from '~/lib/api'
 import { int, submit, text } from '~/lib/form'
@@ -22,6 +22,7 @@ export async function clientAction({ request }: Route.ClientActionArgs) {
     maxPeople: int(form, 'maxPeople'),
     resetSeconds: int(form, 'resetSeconds'),
     notice: text(form, 'notice'),
+    published: form.has('published'),
   }
   return (await submit(settingsInputSchema, values, (json) => unwrap(api.admin.settings.$put({ json })))).errors ?? { saved: true }
 }
@@ -41,6 +42,10 @@ export default function SettingsPage({ loaderData: s, actionData }: Route.Compon
         {errors?.error && <Alert>{errors.error}</Alert>}
         <Card>
           <Form method="post" className={css({ display: 'flex', flexDirection: 'column', gap: 'md' })}>
+            <div className={css({ display: 'flex', flexDirection: 'column', gap: 'xs' })}>
+              <Checkbox label="公開する" name="published" defaultChecked={s.published} />
+              <p className={css({ fontSize: 'xs', color: 'fg.subtle' })}>オフの間は公開ページ（空き状況・お知らせ）を「準備中」にします。管理画面と登録済みの受付端末はそのまま使えます。</p>
+            </div>
             <div className={css({ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'sm' })}>
               <TextField label="受付開始日" name="openDate" type="date" defaultValue={s.openDate} required error={fe.openDate} />
               <TextField label="受付終了日" name="closeDate" type="date" defaultValue={s.closeDate} required error={fe.closeDate} />

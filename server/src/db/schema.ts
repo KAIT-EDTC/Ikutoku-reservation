@@ -10,6 +10,8 @@ export const settings = sqliteTable('settings', {
   maxPeople: integer('max_people').notNull().default(5),
   resetSeconds: integer('reset_seconds').notNull().default(60),
   notice: text('notice').notNull().default(''),
+  /** オフの間は公開ページを「準備中」にする（運用開始まで空き状況を出さない） */
+  published: integer('published', { mode: 'boolean' }).notNull().default(false),
 }, (t) => [check('settings_single_row', sql`${t.id} = 1`)])
 
 export const slotTemplates = sqliteTable('slot_templates', {

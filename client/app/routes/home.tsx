@@ -3,6 +3,7 @@ import { css, cx } from 'styled-system/css'
 import { Alert } from '~/components/ui/Alert'
 import { EmptyState } from '~/components/ui/EmptyState'
 import { PageHeader } from '~/components/ui/PageHeader'
+import { ComingSoon } from '~/features/slots/ComingSoon'
 import { SlotStatusBadge } from '~/features/slots/SlotStatusBadge'
 import { api, unwrap } from '~/lib/api'
 import { formatDate, formatTimes } from '~/lib/format'
@@ -22,7 +23,8 @@ const tabActiveStyle = css({ bg: 'accent', borderColor: 'accent', color: 'fg.inv
 
 /** F-01: 日付ごとのコマと残り人数。予約ボタンは出さない */
 export default function AvailabilityPage({ loaderData }: Route.ComponentProps) {
-  const { notice, dates, date, slots } = loaderData
+  const { published, notice, dates, date, slots } = loaderData
+  if (!published) return <ComingSoon />
   return (
     <>
       <PageHeader title="空き状況" description="予約は会場の受付で行います。○ 余裕あり / △ 残りわずか / × 満員" />

@@ -47,6 +47,7 @@ export const settingsInputSchema = z
     maxPeople: z.number().int().min(1, '1名以上にしてください').max(50, '50名以下にしてください'),
     resetSeconds: z.number().int().min(10, '10秒以上にしてください').max(600, '600秒以下にしてください'),
     notice: z.string().max(1000, 'お知らせは1000文字以内にしてください'),
+    published: z.boolean(),
   })
   .refine((v) => v.openDate <= v.closeDate, { path: ['closeDate'], message: '受付期間の終わりは始まりより後にしてください' })
 

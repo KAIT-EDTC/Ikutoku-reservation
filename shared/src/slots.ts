@@ -1,6 +1,6 @@
 import { nowJst, weekday } from './date.ts'
 
-export type Settings = { openDate: string; closeDate: string; maxPeople: number; resetSeconds: number; notice: string }
+export type Settings = { openDate: string; closeDate: string; maxPeople: number; resetSeconds: number; notice: string; published: boolean }
 export type BlackoutKind = 'once' | 'weekly' | 'monthly' | 'slot'
 export type Rule = {
   id: number

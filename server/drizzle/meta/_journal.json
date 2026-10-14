@@ -15,6 +15,13 @@
       "when": 1791958081510,
       "tag": "0001_seed",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791960695027,
+      "tag": "0002_publish_switch",
+      "breakpoints": true
     }
   ]
 }
