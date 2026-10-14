@@ -1,9 +1,10 @@
 import { Hono, type Context } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
-import { html } from 'hono/html'
+import { html, raw } from 'hono/html'
+import { renderSVG } from 'uqr'
 import { getRules, getSettings, getSlots, log, markClass, page, reserve, type Env, type Html } from './common'
 import {
-  WEEKDAYS, datesBetween, fmtDate, hashPassword, hmac, nowJst, randomToken, ruleBlocks, safeEqual, sha256, slotState, verifyPassword, weekday,
+  TOTP_SECRET, WEEKDAYS, datesBetween, fmtDate, hmac, newTotpSecret, nowJst, otpauthUri, randomToken, ruleBlocks, safeEqual, sha256, slotState, verifyTotp, weekday,
   type Rule,
 } from './lib'
 
@@ -26,20 +27,23 @@ const bad = (c: Context, msg = '入力内容が正しくありません。') =>
 const back = (f: Form, fallback: string) => (f.back?.startsWith('/admin') ? f.back : fallback)
 
 // ---------- auth ----------
-// Session cookie = id.expiry.HMAC(password_hash, id.expiry): changing the password logs everyone out, no extra secret needed.
+// Login = 6-digit TOTP code from an authenticator app (shared account, shared secret).
+// Session cookie = id.expiry.HMAC(totp_secret, id.expiry): re-issuing the secret logs everyone out, no extra secret needed.
+type Admin = { id: number; totp_secret: string | null }
 
 admin.use(async (c, next) => {
   if (c.req.path === '/admin/login') return next()
   const [id, exp, sig] = (getCookie(c, 'adm') ?? '').split('.')
-  const a = Number(exp) > Date.now() && (await c.env.DB.prepare('SELECT * FROM admins WHERE id = ?').bind(Number(id)).first<{ id: number; password_hash: string }>())
-  if (!a || !safeEqual(await hmac(a.password_hash, `${id}.${exp}`), sig ?? '')) return c.redirect('/admin/login')
+  const a = Number(exp) > Date.now() && (await c.env.DB.prepare('SELECT * FROM admins WHERE id = ?').bind(Number(id)).first<Admin>())
+  if (!a || !a.totp_secret || !safeEqual(await hmac(a.totp_secret, `${id}.${exp}`), sig ?? '')) return c.redirect('/admin/login')
   c.set('adminId', a.id)
   await next()
 })
 
 const loginForm = (error = '') => adminPage('ログイン', html`<h1>管理者ログイン</h1>${error ? html`<p class="warn">${error}</p>` : ''}
-  <form method="post" class="card" style="max-width:360px"><p><label>ログインID<br><input name="login_id" autocomplete="username" required></label></p>
-  <p><label>パスワード<br><input type="password" name="password" autocomplete="current-password" required></label></p><button class="primary">ログイン</button></form>`)
+  <form method="post" class="card" style="max-width:360px"><p><label>認証アプリの6桁コード<br>
+  <input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required autofocus style="font-size:1.6em;letter-spacing:.2em;width:8em"></label></p>
+  <button class="primary">ログイン</button></form>`)
 
 admin.get('/login', (c) => c.html(loginForm()))
 admin.post('/login', async (c) => {
@@ -47,14 +51,17 @@ admin.post('/login', async (c) => {
   const f = await form(c)
   const fails = await db.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action = 'login_failed' AND at > ?").bind(nowJst(Date.now() - 15 * 60_000).iso).first<number>('n')
   if (fails! >= MAX_FAILS) return c.html(loginForm('ログイン失敗が続いたため一時的に停止しています。15分ほど待ってから再度お試しください。'), 429)
-  const a = await db.prepare('SELECT * FROM admins WHERE login_id = ?').bind(f.login_id ?? '').first<{ id: number; password_hash: string }>()
-  if (!a || !(await verifyPassword(f.password ?? '', a.password_hash))) {
+  const a = await db.prepare("SELECT * FROM admins WHERE login_id = 'admin'").first<Admin>()
+  const step = a?.totp_secret ? await verifyTotp(a.totp_secret, (f.code ?? '').trim()) : null
+  // Consuming the step atomically makes each code single-use.
+  const fresh = step !== null && (await db.prepare('UPDATE admins SET totp_last_step = ? WHERE id = ? AND totp_last_step < ?').bind(step, a!.id, step).run()).meta.changes
+  if (!fresh) {
     await log(db, 'anonymous', null, 'login_failed')
-    return c.html(loginForm('IDまたはパスワードが違います。'), 401)
+    return c.html(loginForm('コードが違うか、使用済みです。次のコードでお試しください。'), 401)
   }
   const exp = Date.now() + SESSION_MS
-  setCookie(c, 'adm', `${a.id}.${exp}.${await hmac(a.password_hash, `${a.id}.${exp}`)}`, { httpOnly: true, secure: true, sameSite: 'Lax', path: '/admin', maxAge: SESSION_MS / 1000 })
-  await log(db, 'admin', a.id, 'login')
+  setCookie(c, 'adm', `${a!.id}.${exp}.${await hmac(a!.totp_secret!, `${a!.id}.${exp}`)}`, { httpOnly: true, secure: true, sameSite: 'Lax', path: '/admin', maxAge: SESSION_MS / 1000 })
+  await log(db, 'admin', a!.id, 'login')
   return c.redirect('/admin', 303)
 })
 
@@ -343,10 +350,7 @@ admin.get('/settings', async (c) => {
       <p><label>自動リセット <input type="number" name="reset_seconds" min="10" max="600" value="${s.reset_seconds}" required> 秒</label></p>
       <p><label>お知らせ（公開ページに表示）<br><textarea name="notice" rows="4" style="width:100%" maxlength="1000">${s.notice}</textarea></label></p>
       <button class="primary">保存</button></form>
-    <form method="post" action="/admin/password" class="card"><h2 style="margin-top:0">パスワード変更</h2>
-      <p class="muted">変更するとすべての端末で管理画面からログアウトされます。</p>
-      <p><input type="password" name="current" placeholder="現在のパスワード" autocomplete="current-password" required>
-      <input type="password" name="next" placeholder="新しいパスワード（8文字以上）" minlength="8" autocomplete="new-password" required></p><button>変更</button></form>`))
+    <div class="card"><h2 style="margin-top:0">ログイン用OTP</h2><p><a href="/admin/otp">認証アプリの追加・再発行</a></p></div>`))
 })
 
 admin.post('/settings', async (c) => {
@@ -360,14 +364,33 @@ admin.post('/settings', async (c) => {
   return c.redirect('/admin/settings?ok=1', 303)
 })
 
-admin.post('/password', async (c) => {
+// ---------- OTP (authenticator app) ----------
+
+const qr = (secret: string) => html`<div style="max-width:260px">${raw(renderSVG(otpauthUri(secret)))}</div><p class="muted">手入力用キー: <code>${secret}</code></p>`
+
+admin.get('/otp', async (c) => {
+  const a = await c.env.DB.prepare('SELECT * FROM admins WHERE id = ?').bind(c.get('adminId')).first<Admin>()
+  if (c.req.query('new')) {
+    const secret = newTotpSecret()
+    return c.html(adminPage('OTPの再発行', html`<h1>OTPの再発行</h1>
+      <p>新しいQRを認証アプリで読み取り、表示された6桁を入力して確定してください。確定すると<strong>古いコードは使えなくなり、全員ログアウト</strong>されます。</p>
+      <div class="card">${qr(secret)}<form method="post" class="row"><input type="hidden" name="secret" value="${secret}">
+        <input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required placeholder="6桁コード"><button class="primary">確定</button></form></div>
+      <p><a href="/admin/otp">やめる</a></p>`))
+  }
+  return c.html(adminPage('ログイン用OTP', html`<h1>ログイン用OTP</h1>
+    <p>メンバーのスマホに認証アプリ（Google Authenticator など）を入れ、このQRを読み取るとログインできるようになります。<strong>このQRは管理者ログインそのものなので、メンバー以外に見せないでください。</strong></p>
+    <div class="card">${qr(a!.totp_secret!)}</div>
+    <div class="card"><h2 style="margin-top:0">再発行</h2><p>スマホの紛失やメンバーの交代時に使います。全員が読み取り直す必要があります。</p><a class="btn" href="/admin/otp?new=1">再発行する</a></div>`))
+})
+
+admin.post('/otp', async (c) => {
   const f = await form(c)
-  const db = c.env.DB
-  const a = await db.prepare('SELECT * FROM admins WHERE id = ?').bind(c.get('adminId')).first<{ password_hash: string }>()
-  if (!a || !(await verifyPassword(f.current ?? '', a.password_hash))) return bad(c, '現在のパスワードが違います。')
-  if ((f.next ?? '').length < 8) return bad(c, '新しいパスワードは8文字以上にしてください。')
-  await db.prepare('UPDATE admins SET password_hash = ? WHERE id = ?').bind(await hashPassword(f.next), c.get('adminId')).run()
-  await log(db, 'admin', c.get('adminId'), 'password_change')
+  if (!TOTP_SECRET.test(f.secret ?? '')) return bad(c)
+  const step = await verifyTotp(f.secret, (f.code ?? '').trim())
+  if (step === null) return bad(c, 'コードが違います。QRを読み取り直して、表示中のコードを入力してください。')
+  await c.env.DB.prepare('UPDATE admins SET totp_secret = ?, totp_last_step = ? WHERE id = ?').bind(f.secret, step, c.get('adminId')).run()
+  await log(c.env.DB, 'admin', c.get('adminId'), 'otp_reset')
   return c.redirect('/admin/login', 303)
 })
 
@@ -424,7 +447,7 @@ admin.post('/devices/:id/:op{disable|enable}', async (c) => {
 const ACTIONS: Record<string, string> = {
   reserve: '予約', reserve_overbook: '予約（定員超過許可）', cancel: '予約取消', login: 'ログイン', login_failed: 'ログイン失敗',
   slot_create: 'コマ追加', slot_update: 'コマ編集', slot_delete: 'コマ削除', template_create: 'ひな形追加', template_delete: 'ひな形削除',
-  blackout_create: '受付不可追加', blackout_delete: '受付不可削除', settings_update: '全体設定変更', password_change: 'パスワード変更',
+  blackout_create: '受付不可追加', blackout_delete: '受付不可削除', settings_update: '全体設定変更', otp_reset: 'OTP再発行',
   device_register: '端末登録', device_rename: '端末名変更', device_disable: '端末無効化', device_enable: '端末有効化',
 }
 

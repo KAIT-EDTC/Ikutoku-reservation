@@ -7,14 +7,14 @@ Cloudflare Workers + D1 + Hono。本番: https://fes.kaitedtc.com
 | --- | --- |
 | 公開（閲覧のみ） | `/` `/day/:date` `/guide` `/news` |
 | 受付端末（登録済み端末のみ） | `/kiosk` |
-| 管理 | `/admin`（ログインID: `admin`） |
+| 管理 | `/admin`（認証アプリの6桁コードでログイン） |
 
 ## 開発
 
 ```sh
 npm install
 npm run db:migrate              # ローカルD1にスキーマ作成
-npm run set-password            # ローカルの admin パスワード設定
+npm run setup-otp               # ローカルの管理者OTPを発行（QRを表示）
 npm run dev                     # http://localhost:8787
 npm test                        # 判定ロジックのテスト
 ```
@@ -23,7 +23,7 @@ npm test                        # 判定ロジックのテスト
 
 ```sh
 npm run db:migrate:remote
-npm run set-password -- --remote   # 初回 or パスワードを忘れたとき
+npm run setup-otp -- --remote   # 初回、または全員がOTPを失くしたとき
 npm run deploy
 ```
 
@@ -39,5 +39,6 @@ npm run deploy
 
 - 定員超過防止: 予約の INSERT 自体に「定員 − 有効予約数 ≥ 希望人数」の条件を入れており、同時に確定しても超過しない
 - バックアップ: D1 の Time Travel（無料プランで7日分の任意時点に復元可）を使う。復元は `npx wrangler d1 time-travel restore DB --timestamp=<ISO日時>`
+- 管理者ログイン: TOTP（RFC 6238）。メンバー全員が同じQRを認証アプリに登録する共有アカウント。追加・再発行は `/admin/otp`。同じコードは1回しか使えない
 - ログイン試行制限: 15分間に全体で10回失敗すると一時停止（IPを保存しないため全体でカウント）
 - アプリはIPアドレスや端末情報を保存しない

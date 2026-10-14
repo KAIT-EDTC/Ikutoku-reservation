@@ -71,13 +71,42 @@ export function safeEqual(a: string, b: string) {
   return diff === 0
 }
 
-// 100k is the PBKDF2 iteration cap on Workers.
-export async function hashPassword(pw: string, salt = randomToken()) {
-  const key = await crypto.subtle.importKey('raw', enc(pw), 'PBKDF2', false, ['deriveBits'])
-  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: enc(salt), iterations: 100_000 }, key, 256)
-  return `pbkdf2$100000$${salt}$${b64u(bits)}`
+// --- TOTP (RFC 6238: HMAC-SHA1, 30s, 6 digits) — what Google Authenticator etc. expect ---
+const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+export const TOTP_SECRET = /^[A-Z2-7]{32}$/
+export const newTotpSecret = () => [...crypto.getRandomValues(new Uint8Array(32))].map((b) => B32[b & 31]).join('') // 160 bits
+
+function b32decode(s: string) {
+  const out: number[] = []
+  let val = 0, bits = 0
+  for (const ch of s) {
+    val = ((val << 5) | B32.indexOf(ch)) & 0xffff
+    bits += 5
+    if (bits >= 8) out.push((val >>> (bits -= 8)) & 255)
+  }
+  return new Uint8Array(out)
 }
-export const verifyPassword = async (pw: string, stored: string) => safeEqual(await hashPassword(pw, stored.split('$')[2]), stored)
+
+export async function totp(secret: string, step: number) {
+  const key = await crypto.subtle.importKey('raw', b32decode(secret), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign'])
+  const msg = new DataView(new ArrayBuffer(8))
+  msg.setUint32(0, Math.floor(step / 2 ** 32))
+  msg.setUint32(4, step >>> 0)
+  const h = new Uint8Array(await crypto.subtle.sign('HMAC', key, msg.buffer))
+  const o = h[19] & 15
+  return String((((h[o] & 127) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]) % 1_000_000).padStart(6, '0')
+}
+
+// Returns the matched time step (±1 step for clock drift), or null. Callers reject steps already used.
+export async function verifyTotp(secret: string, code: string, now = Date.now()) {
+  if (!/^\d{6}$/.test(code)) return null
+  const step = Math.floor(now / 30_000)
+  for (const s of [step - 1, step, step + 1]) if (safeEqual(await totp(secret, s), code)) return s
+  return null
+}
+
+export const otpauthUri = (secret: string) =>
+  `otpauth://totp/Ikutoku-reservation:admin?secret=${secret}&issuer=Ikutoku-reservation`
 
 export async function hmac(key: string, msg: string) {
   const k = await crypto.subtle.importKey('raw', enc(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])

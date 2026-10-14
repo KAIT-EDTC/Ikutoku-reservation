@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { hashPassword, newCode, nowJst, ruleBlocks, slotState, verifyPassword, type Rule, type Settings, type Slot } from '../src/lib.ts'
+import { newCode, newTotpSecret, nowJst, ruleBlocks, slotState, totp, verifyTotp, type Rule, type Settings, type Slot } from '../src/lib.ts'
 
 const s: Settings = { open_date: '2026-11-07', close_date: '2026-11-08', max_people: 5, reset_seconds: 60, notice: '' }
 const slot = (o: Partial<Slot> = {}): Slot => ({ id: 1, date: '2026-11-07', start_time: '10:00', end_time: '11:00', capacity: 8, status: 'open', booked: 0, ...o })
@@ -29,10 +29,15 @@ test('slot state order', () => {
   assert.equal(slotState(slot({ booked: 8 }), [rule({ kind: 'slot', slot_id: 1 })], s, before).mark, '受付停止') // blackout wins
 })
 
-test('jst + codes + passwords', async () => {
+test('jst + codes + totp', async () => {
   assert.deepEqual(nowJst(Date.parse('2026-11-06T15:30:00Z')).date, '2026-11-07')
   for (let i = 0; i < 200; i++) assert.match(newCode(), /^[2-9A-HJKMNP-Z]{4}$/)
-  const h = await hashPassword('correct horse')
-  assert.ok(await verifyPassword('correct horse', h))
-  assert.ok(!(await verifyPassword('wrong', h)))
+  // RFC 6238 appendix B vectors (secret = ASCII "12345678901234567890"), last 6 digits
+  const rfc = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'
+  assert.equal(await totp(rfc, Math.floor(59 / 30)), '287082')
+  assert.equal(await totp(rfc, Math.floor(1111111109 / 30)), '081804')
+  assert.equal(await totp(rfc, Math.floor(20000000000 / 30)), '353130')
+  assert.equal(await verifyTotp(rfc, '081804', 1111111109_000 + 30_000), Math.floor(1111111109 / 30)) // previous step still accepted
+  assert.equal(await verifyTotp(rfc, '081804', 1111111109_000 + 90_000), null)
+  assert.match(newTotpSecret(), /^[A-Z2-7]{32}$/)
 })
