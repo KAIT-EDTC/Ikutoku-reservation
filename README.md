@@ -123,7 +123,7 @@ npm run setup-otp -- --remote      # 初回、または全員が認証アプリ�
 4. iPad はアクセスガイド、PC はブラウザのキオスクモードで固定
 5. 端末を紛失したら `/admin/devices` で無効化
 
-SUNMI V1s（レシートプリンタ付きの Android 端末）を受付端末に使う計画と手順は [docs/sunmi-v1s.md](docs/sunmi-v1s.md)。
+SUNMI V1s（レシートプリンタ付きの Android 端末）を受付端末に使う計画と手順は [docs/sunmi-v1s.md](docs/sunmi-v1s.md)。アプリ本体は [android/](android/README.md)（Kotlin + Compose。開発・実機への入れ方もここ）。
 
 ### 補足
 
