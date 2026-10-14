@@ -1,6 +1,6 @@
 import { html, raw } from 'hono/html'
 import type { HtmlEscapedString } from 'hono/utils/html'
-import { newCode, nowJst, type Rule, type Settings, type Slot } from './lib'
+import { nowJst, type Rule, type Settings, type Slot } from './lib.ts'
 
 export type Env = { Bindings: { DB: D1Database }; Variables: { adminId: number; deviceId: number } }
 export type Html = HtmlEscapedString | Promise<HtmlEscapedString>
@@ -24,26 +24,6 @@ export async function eventDates(db: D1Database, s: Settings) {
 export const log = (db: D1Database, actorType: string, actorId: number | null, action: string, targetId: number | null = null) =>
   db.prepare('INSERT INTO audit_logs (at, actor_type, actor_id, action, target_id) VALUES (?, ?, ?, ?, ?)')
     .bind(nowJst().iso, actorType, actorId, action, targetId).run()
-
-// F-06: capacity is re-checked inside the INSERT itself. D1 runs each statement atomically
-// against a single writer, so two kiosks racing for the last seat cannot both succeed.
-export async function reserve(db: D1Database, slotId: number, people: number, by: 'device' | 'admin', byId: number, allowOver = false) {
-  for (let i = 0; i < 5; i++) {
-    const code = newCode()
-    try {
-      const r = await db.prepare(`INSERT INTO reservations (slot_id, people, code, created_at, created_by_type, created_by_id)
-        SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE EXISTS (SELECT 1 FROM slots WHERE id = ?1 AND status != 'deleted') AND (?7
-          OR (SELECT capacity FROM slots WHERE id = ?1) - (SELECT COALESCE(SUM(people), 0) FROM reservations WHERE slot_id = ?1 AND status = 'active') >= ?2)`)
-        .bind(slotId, people, code, nowJst().iso, by, byId, allowOver ? 1 : 0).run()
-      if (!r.meta.changes) return null
-      await log(db, by, byId, allowOver ? 'reserve_overbook' : 'reserve', r.meta.last_row_id)
-      return code
-    } catch (e) {
-      if (!String(e).includes('UNIQUE')) throw e // code collision → retry with a new code
-    }
-  }
-  throw new Error('could not allocate a reservation code')
-}
 
 const CSS = `
 :root{--fg:#1d2433;--muted:#5d6678;--bg:#f6f7f9;--card:#fff;--line:#d9dde4;--accent:#1f5fbf;--ok:#1d7a3a;--warn:#b26a00;--ng:#9aa1ad;--danger:#b3261e}

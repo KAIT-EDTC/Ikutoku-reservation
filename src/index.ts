@@ -2,9 +2,10 @@ import { Hono, type Context } from 'hono'
 import { getCookie } from 'hono/cookie'
 import { csrf } from 'hono/csrf'
 import { html } from 'hono/html'
-import admin from './admin'
-import { eventDates, getRules, getSettings, getSlots, markClass, page, reserve, type Env } from './common'
-import { fmtDate, nowJst, sha256, slotState } from './lib'
+import admin from './admin.ts'
+import { book } from './booking.ts'
+import { eventDates, getRules, getSettings, getSlots, markClass, page, type Env } from './common.ts'
+import { fmtDate, nowJst, sha256, slotState } from './lib.ts'
 
 const app = new Hono<Env>()
 const DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -138,22 +139,20 @@ kiosk.get('/:date/:slot', async (c) => {
     <h1>この内容で予約しますか？</h1>
     <div class="card" style="font-size:1.3em"><p>日時：${when}</p><p>人数：${n}名</p></div>
     <form method="post" action="/kiosk/reserve" onsubmit="this.querySelector('button[type=submit]').disabled=true">
-      <input type="hidden" name="slot" value="${slot.id}"><input type="hidden" name="people" value="${n}">
+      <input type="hidden" name="slot" value="${slot.id}"><input type="hidden" name="people" value="${n}"><input type="hidden" name="date" value="${date}">
       <div class="actions"><a class="btn" href="/kiosk/${date}/${slot.id}">← 戻る</a><button type="submit" class="primary">予約を確定する</button></div>
     </form>`, s.reset_seconds))
 })
 
 kiosk.post('/reserve', async (c) => {
-  const db = c.env.DB
-  const f = await c.req.parseBody()
-  const people = Number(f.people)
-  const [s, rules, [slot]] = await Promise.all([getSettings(db), getRules(db), getSlots(db, 's.id = ?', Number(f.slot))])
-  const ok = slot && Number.isInteger(people) && people >= 1 && people <= s.max_people && slotState(slot, rules, s).bookable
-  const code = ok ? await reserve(db, slot.id, people, 'device', c.get('deviceId')) : null
-  if (code) return c.redirect(`/kiosk/done?code=${code}`, 303)
+  const f = (await c.req.parseBody()) as Record<string, string>
+  const r = await book(c.env.DB, { slotId: Number(f.slot), people: Number(f.people), by: { type: 'device', id: c.get('deviceId') } })
+  if (r.ok) return c.redirect(`/kiosk/done?code=${r.code}`, 303)
+  const s = await getSettings(c.env.DB)
+  const why = r.reason === 'full' ? '直前に他の方の予約が入り、定員に達しました。' : r.reason === 'unavailable' ? 'このコマは受付を停止しました。' : '選択内容が正しくありません。'
   return c.html(kioskPage('予約できませんでした', html`
-    <h1>予約できませんでした</h1><p>直前に他の方の予約が入ったか、受付を停止しました。お手数ですが選び直してください。</p>
-    <div class="actions"><a class="btn primary" href="${slot ? `/kiosk/${slot.date}` : '/kiosk'}">時間を選び直す</a></div>`, s.reset_seconds), 409)
+    <h1>予約できませんでした</h1><p>${why}お手数ですが選び直してください。</p>
+    <div class="actions"><a class="btn primary" href="${DATE.test(f.date ?? '') ? `/kiosk/${f.date}` : '/kiosk'}">時間を選び直す</a></div>`, s.reset_seconds), 409)
 })
 
 app.route('/kiosk', kiosk)

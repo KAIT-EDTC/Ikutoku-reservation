@@ -2,11 +2,12 @@ import { Hono, type Context } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { html, raw } from 'hono/html'
 import { renderSVG } from 'uqr'
-import { getRules, getSettings, getSlots, log, markClass, page, reserve, type Env, type Html } from './common'
+import { book } from './booking.ts'
+import { getRules, getSettings, getSlots, log, markClass, page, type Env, type Html } from './common.ts'
 import {
   TOTP_SECRET, WEEKDAYS, datesBetween, fmtDate, hmac, newTotpSecret, nowJst, otpauthUri, randomToken, ruleBlocks, safeEqual, sha256, slotState, verifyTotp, weekday,
   type Rule,
-} from './lib'
+} from './lib.ts'
 
 const admin = new Hono<Env>()
 const SESSION_MS = 12 * 3600_000
@@ -221,10 +222,10 @@ admin.post('/slots/:id/delete', async (c) => {
 
 admin.post('/reservations', async (c) => {
   const f = await form(c)
-  const slot = int(f.slot, 1, Number.MAX_SAFE_INTEGER), people = int(f.people, 1, 99)
-  if (!slot || !people) return bad(c)
-  const code = await reserve(c.env.DB, slot, people, 'admin', c.get('adminId'), f.overbook === '1')
-  if (!code) return bad(c, '定員を超えるため登録できません。必要なら「定員超過を許可」にチェックしてください。')
+  const people = Number(f.people)
+  const r = await book(c.env.DB, { slotId: Number(f.slot), people, by: { type: 'admin', id: c.get('adminId'), overbook: f.overbook === '1' } })
+  if (!r.ok) return bad(c, r.reason === 'full' ? '定員を超えるため登録できません。必要なら「定員超過を許可」にチェックしてください。' : undefined)
+  const code = r.code
   return c.html(adminPage('代理予約完了', html`<h1>代理予約を登録しました</h1><div class="card"><div class="muted">予約番号</div><div class="code">${code}</div><p style="text-align:center">${people}名</p></div>
     <p><a class="btn primary" href="${back(f, '/admin')}">戻る</a></p>`))
 })
