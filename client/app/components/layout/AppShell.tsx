@@ -2,14 +2,13 @@ import { type ReactNode, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router'
 import { css, cx } from 'styled-system/css'
 import { Button } from '../ui/Button'
-import { CalendarIcon, ClockIcon, HomeIcon, ListIcon, LogOutIcon, SlidersIcon, TabletIcon } from '../ui/Icons'
+import { CalendarIcon, HomeIcon, ListIcon, LogOutIcon, SlidersIcon, TabletIcon } from '../ui/Icons'
 import { Logo } from './Logo'
 
 /** スマホ幅では先頭3つを下部タブに、残りを「その他」に入れる */
 const NAV_ITEMS = [
   { to: '/admin', label: '今日の予約', short: '今日', icon: HomeIcon, end: true },
   { to: '/admin/calendar', label: 'カレンダー', short: 'カレンダー', icon: CalendarIcon, end: false },
-  { to: '/admin/templates', label: 'コマのひな形', short: 'ひな形', icon: ClockIcon, end: false },
   { to: '/admin/settings', label: '全体設定', short: '設定', icon: SlidersIcon, end: false },
   { to: '/admin/devices', label: '受付端末', short: '端末', icon: TabletIcon, end: false },
   { to: '/admin/logs', label: '操作ログ', short: 'ログ', icon: ListIcon, end: false },

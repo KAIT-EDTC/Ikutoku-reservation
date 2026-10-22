@@ -26,7 +26,6 @@ export default [
       index('routes/admin/today.tsx'),
       route('calendar', 'routes/admin/calendar.tsx'),
       route('calendar/:date', 'routes/admin/calendar-day.tsx'),
-      route('templates', 'routes/admin/templates.tsx'),
       route('settings', 'routes/admin/settings.tsx'),
       route('otp', 'routes/admin/otp.tsx'),
       route('devices', 'routes/admin/devices.tsx'),

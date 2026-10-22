@@ -14,20 +14,7 @@ export const settings = sqliteTable('settings', {
   published: integer('published', { mode: 'boolean' }).notNull().default(false),
 }, (t) => [check('settings_single_row', sql`${t.id} = 1`)])
 
-export const slotTemplates = sqliteTable('slot_templates', {
-  id: integer('id').primaryKey(),
-  weekday: integer('weekday').notNull(),
-  startTime: text('start_time').notNull(),
-  endTime: text('end_time').notNull(),
-  capacity: integer('capacity').notNull(),
-  validFrom: text('valid_from'),
-  validTo: text('valid_to'),
-}, (t) => [
-  check('slot_templates_weekday', sql`${t.weekday} BETWEEN 0 AND 6`),
-  check('slot_templates_capacity', sql`${t.capacity} >= 0`),
-])
-
-// deleted は論理削除（ひな形からの再生成で復活させないため）
+// deleted は論理削除（取消済みの予約が参照しているため行は残す）
 export const slots = sqliteTable('slots', {
   id: integer('id').primaryKey(),
   date: text('date').notNull(),
@@ -35,7 +22,6 @@ export const slots = sqliteTable('slots', {
   endTime: text('end_time').notNull(),
   capacity: integer('capacity').notNull(),
   deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false),
-  templateId: integer('template_id').references(() => slotTemplates.id, { onDelete: 'set null' }),
 }, (t) => [unique().on(t.date, t.startTime), check('slots_capacity', sql`${t.capacity} >= 0`)])
 
 export const reservations = sqliteTable('reservations', {

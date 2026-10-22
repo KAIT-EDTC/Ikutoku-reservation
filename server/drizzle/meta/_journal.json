@@ -29,6 +29,13 @@
       "when": 1791961402134,
       "tag": "0003_drop_blackout_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792663468551,
+      "tag": "0004_drop_slot_templates",
+      "breakpoints": true
     }
   ]
 }

@@ -19,11 +19,6 @@ export const adminReserveSchema = z.object({
   overbook: z.boolean(),
 })
 
-export const templateInputSchema = slotFields
-  .extend({ weekday: z.number().int().min(0).max(6), validFrom: date.nullable(), validTo: date.nullable() })
-  .refine((v) => v.startTime < v.endTime, timeOrder)
-  .refine((v) => !v.validFrom || !v.validTo || v.validFrom <= v.validTo, { path: ['validTo'], message: '適用期間の終わりは始まりより後にしてください' })
-
 export const settingsInputSchema = z
   .object({
     openDate: date,

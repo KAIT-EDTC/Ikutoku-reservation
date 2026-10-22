@@ -1,7 +1,6 @@
 import { and, between, eq, sql, type SQL } from 'drizzle-orm'
-import { datesBetween, weekday } from '@ikutoku/shared'
 import type { Db } from '../../db/index.ts'
-import { reservations, settings, slots, slotTemplates } from '../../db/schema.ts'
+import { reservations, settings, slots } from '../../db/schema.ts'
 
 export const getSettings = async (db: Db) => (await db.select().from(settings).where(eq(settings.id, 1)).get())!
 
@@ -34,18 +33,3 @@ export const eventDates = async (db: Db, s: { openDate: string; closeDate: strin
       .orderBy(slots.date)
       .all()
   ).map((r) => r.date)
-
-/** 受付期間の各日に、ひな形のコマを作る。既にある（削除済みを含む）コマはそのまま */
-export async function generateSlots(db: Db) {
-  const [s, templates] = await Promise.all([getSettings(db), db.select().from(slotTemplates).all()])
-  const rows = datesBetween(s.openDate, s.closeDate).flatMap((d) =>
-    templates
-      .filter((t) => t.weekday === weekday(d) && (!t.validFrom || t.validFrom <= d) && (!t.validTo || d <= t.validTo))
-      .map((t) => ({ date: d, startTime: t.startTime, endTime: t.endTime, capacity: t.capacity, templateId: t.id })),
-  )
-  // D1 は1文あたりのバインド数に上限があるので、10行ずつに分けて1回のバッチで送る
-  const chunks = Array.from({ length: Math.ceil(rows.length / 10) }, (_, i) =>
-    db.insert(slots).values(rows.slice(i * 10, i * 10 + 10)).onConflictDoNothing(),
-  )
-  if (chunks.length) await db.batch(chunks as [(typeof chunks)[0], ...typeof chunks])
-}
