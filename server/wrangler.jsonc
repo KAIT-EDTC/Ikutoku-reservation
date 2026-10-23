@@ -3,6 +3,7 @@
   "name": "ikutoku-reservation",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
+  "previews": {},
 
   // ---- ローカル開発（wrangler dev）用 ------------------------------------
   "vars": {
