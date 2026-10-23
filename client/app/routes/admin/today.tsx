@@ -1,4 +1,4 @@
-import { nowJst } from '@ikutoku/shared'
+import { nowJst, productName } from '@ikutoku/shared'
 import { Form } from 'react-router'
 import { css } from 'styled-system/css'
 import { Alert } from '~/components/ui/Alert'
@@ -41,7 +41,7 @@ export default function TodayPage({ loaderData, actionData }: Route.ComponentPro
               {found ? (
                 <>
                   <p className={css({ mb: 'sm', fontWeight: '600' })}>
-                    {formatDate(found.date)} {formatTimes(found)}
+                    {formatDate(found.date)} {formatTimes(found)} {productName(found.product)}
                   </p>
                   <ReservationTable rows={[found]} />
                 </>
