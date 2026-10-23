@@ -4,8 +4,8 @@
 
 | 区分 | URL | できること |
 | --- | --- | --- |
-| 公開（閲覧のみ） | `/` `/day/:date` `/guide` `/news` | 空き状況（○ 余裕 / △ 残りわずか / × 満員）、利用案内、お知らせ |
-| 受付端末（登録済み端末のみ） | `/kiosk` | 日付 → コマ → 人数 → 確認 で予約。予約番号を表示し、一定時間でトップに戻る |
+| 公開（閲覧のみ） | `/` | メカデミーの紹介（ポスターの内容）、体験ごとの空き状況（○ 余裕 / △ 残りわずか / × 満員）、予約のしかた、お知らせ。以前の `/day/:date` `/guide` `/news` はトップへ転送 |
+| 受付端末（登録済み端末のみ） | `/kiosk` | 日付 → 体験とコマ → 人数 → 確認 で予約。予約番号を表示し、一定時間でトップに戻る |
 | 管理 | `/admin` | コマ・全体設定（公開スイッチ）、予約一覧・代理予約・取消、受付端末、操作ログ |
 
 管理画面は共有の管理者アカウント1つで、認証アプリ（TOTP）の6桁コードでログインする。
@@ -14,7 +14,7 @@
 
 ```
 .
-├── shared/   # client と server で共有する日付処理・コマの判定（slotState）・zodスキーマ
+├── shared/   # client と server で共有する日付処理・体験の一覧（products）・コマの判定（slotState）・zodスキーマ
 ├── server/   # Cloudflare Workers + Hono + Drizzle (D1)
 └── client/   # React Router v7 (SPAモード) + Panda CSS
 ```
@@ -30,7 +30,7 @@ db/schema.ts           # テーブル定義（スキーマの正。drizzle/ の�
 middleware/auth.ts     # requireAdmin（管理者セッション）と requireDevice（受付端末の Cookie）
 lib/                   # crypto（TOTP・HMAC）、audit（操作ログ）、errors、validator
 features/
-  public/              # 空き状況（閲覧のみ）
+  public/              # 空き状況（閲覧のみ。受付期間の全日・全体験のコマを返す）
   kiosk/               # 受付端末の画面データと予約
   reservations/        # 予約確定 book()（定員の再判定はINSERT文の中）・代理予約・取消・検索
   slots/               # コマの取得（queries.ts）・日別/月表示・コマの追加/編集/削除
@@ -45,7 +45,7 @@ features/
 ```
 routes.ts              # URL とルートモジュールの対応（要件定義書8章の画面一覧）
 routes/                # 1URL = 1ファイル。clientLoader / clientAction でデータを読み書きし、features の部品を並べるだけ
-features/<機能>/        # その機能だけで使うUI・フック（admin の日別画面、kiosk の選択ボタン・自動リセットなど）
+features/<機能>/        # その機能だけで使うUI・フック（admin の日別画面、kiosk の選択ボタン・自動リセット、mecademy の公開トップなど）
 components/ui/         # 機能に依存しない部品（Button, Field, Card, Badge, Alert, Icons…）
 components/layout/     # AppShell（管理画面の枠）, SiteShell（公開ページ）, KioskShell（受付端末）, PublicShell（ログイン）
 lib/                   # APIクライアント（unwrap で401→受付端末なら / 、管理なら /admin/login）、フォーム補助、日付整形
@@ -54,6 +54,8 @@ theme/ (client直下)     # Panda のトークン・グローバルCSS（ダッ�
 
 - データ取得は `clientLoader`、更新は `<Form>` → `clientAction`。更新後は React Router が自動で再取得する
 - スタイルは Panda CSS。色は意味ベースのトークン（`surface`, `fg.muted`, `accent`, `border` …）だけを使う
+- 公開トップはポスター（メカデミー）のデザイン。色は `poster.*`、フォントは `maru`（Zen Maru Gothic）・`kaku`（BIZ UDPGothic）。タイトル・黒板・写真などは `client/public/mecademy/` に置いてある（ポスターの .ai から書き出したもの。会場写真は顔をぼかし済み）
+- 体験（プログラミング体験・ぶるぶるくん・相撲ロボット）の一覧は `shared/src/products.ts`、説明文・対象年齢・料金は `client/app/features/mecademy/content.ts`
 
 ## 受付ルール
 
@@ -117,7 +119,7 @@ npm run setup-otp -- --remote      # 初回、または全員が認証アプリ�
 ### 当日の準備
 
 1. `/admin/settings` で受付期間（開催2日間）・最大人数・お知らせを設定
-2. `/admin/calendar` で開催日を開き、「コマを追加」でその日のコマを作る
+2. `/admin/calendar` で開催日を開き、「コマを追加」で体験を選んでその日のコマを作る（コマは体験ごと）
 3. 受付用 iPad/PC で `/admin` にログイン → `/admin/devices` で「この端末を登録」→ ログアウト → `/kiosk` を開く
 4. iPad はアクセスガイド、PC はブラウザのキオスクモードで固定
 5. 端末を紛失したら `/admin/devices` で無効化
