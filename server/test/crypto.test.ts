@@ -11,5 +11,6 @@ test('totp (RFC 6238 appendix B, last 6 digits)', async () => {
   assert.equal(await verifyTotp(rfc, '081804', 1111111109_000 + 90_000), null)
   assert.match(newTotpSecret(), /^[A-Z2-7]{32}$/)
   assert.match(otpauthUri('S'), /^otpauth:\/\/totp\/Ikutoku-reservation:admin\?secret=S&issuer=Ikutoku-reservation$/)
-  assert.match(otpauthUri('S', { dev: true }), /issuer=Ikutoku-reservation%20\(dev\)$/)
+  assert.match(otpauthUri('S', { env: 'dev' }), /issuer=Ikutoku-reservation%20\(dev\)$/)
+  assert.match(otpauthUri('S', { env: 'preview' }), /issuer=Ikutoku-reservation%20\(preview\)$/)
 })
