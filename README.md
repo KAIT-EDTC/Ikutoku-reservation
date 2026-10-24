@@ -1,12 +1,14 @@
 # 予約システム
 
-受付に置いた共用端末（iPad/PC）で予約を受け、空き状況はお客さんが自分の端末から見られるWebアプリ。DBに個人情報は持たない（予約は予約番号と人数だけ）。本番: https://fes.kaitedtc.com
+受付に置いた共用端末（iPad/PC）で予約を受け、空き状況はお客さんが自分の端末から見られるWebアプリ。DBに個人情報は持たない（予約は予約番号と人数だけ）。本番: [https://fes.kaitedtc.com](https://fes.kaitedtc.com)
 
-| 区分 | URL | できること |
-| --- | --- | --- |
-| 公開（閲覧のみ） | `/` `/day/:date` `/guide` `/news` | 空き状況（○ 余裕 / △ 残りわずか / × 満員）、利用案内、お知らせ |
-| 受付端末（登録済み端末のみ） | `/kiosk` | 日付 → コマ → 人数 → 確認 で予約。予約番号を表示し、一定時間でトップに戻る |
-| 管理 | `/admin` | コマ・全体設定（公開スイッチ）、予約一覧・代理予約・取消、受付端末、操作ログ |
+
+| 区分             | URL                               | できること                                      |
+| -------------- | --------------------------------- | ------------------------------------------ |
+| 公開（閲覧のみ）       | `/` `/day/:date` `/guide` `/news` | 空き状況（○ 余裕 / △ 残りわずか / × 満員）、利用案内、お知らせ      |
+| 受付端末（登録済み端末のみ） | `/kiosk`                          | 日付 → コマ → 人数 → 確認 で予約。予約番号を表示し、一定時間でトップに戻る |
+| 管理             | `/admin`                          | コマ・全体設定（公開スイッチ）、予約一覧・代理予約・取消、受付端末、操作ログ     |
+
 
 管理画面は共有の管理者アカウント1つで、認証アプリ（TOTP）の6桁コードでログインする。
 
@@ -79,15 +81,17 @@ npm run setup-otp                  # ローカルの管理者に認証アプリ�
 npm run dev                        # client: http://localhost:5173 / server: http://localhost:8787
 ```
 
-| コマンド | 内容 |
-| --- | --- |
-| `npm run typecheck` | 全ワークスペースの型チェック |
-| `npm run lint` | client の ESLint |
-| `npm test` | 判定ロジック・スキーマ（shared）と予約確定・TOTP（server）のテスト |
-| `npm run build` | client のビルド（`client/build/client` に静的ファイル） |
-| `npm run db:generate` | `server/src/db/schema.ts` からマイグレーションを生成 |
-| `npm run db:seed` | ローカルD1に、受付期間の2日間ぶんのコマ（ID 9000番台）と予約・受付停止を入れる。何度実行しても同じ状態になる |
-| `npm run db:seed:clear` | シードで入れたものだけを消す |
+
+| コマンド                    | 内容                                                          |
+| ----------------------- | ----------------------------------------------------------- |
+| `npm run typecheck`     | 全ワークスペースの型チェック                                              |
+| `npm run lint`          | client の ESLint                                             |
+| `npm test`              | 判定ロジック・スキーマ（shared）と予約確定・TOTP（server）のテスト                   |
+| `npm run build`         | client のビルド（`client/build/client` に静的ファイル）                  |
+| `npm run db:generate`   | `server/src/db/schema.ts` からマイグレーションを生成                     |
+| `npm run db:seed`       | ローカルD1に、受付期間の2日間ぶんのコマ（ID 9000番台）と予約・受付停止を入れる。何度実行しても同じ状態になる |
+| `npm run db:seed:clear` | シードで入れたものだけを消す                                              |
+
 
 受付端末の画面を試すときは、管理画面の「受付端末」で今のブラウザを登録してから `/kiosk` を開く。
 
@@ -103,16 +107,24 @@ npm run deploy                     # client をビルドして wrangler deploy -
 npm run setup-otp -- --remote      # 初回、または全員が認証アプリを失くしたとき
 ```
 
-`main` に push すると Cloudflare の Workers Builds（GitHub 連携）が自動でデプロイする。設定は Cloudflare ダッシュボードの Workers & Pages → `ikutoku-reservation` → Settings → Builds。
+`main` に push すると Cloudflare の Workers Builds（GitHub 連携）が自動でデプロイする。設定は Cloudflare ダッシュボードの Workers &amp; Pages → `ikutoku-reservation` → Settings → Builds。
 
-| 項目 | 値 |
-| --- | --- |
-| Branch | `main` |
-| Root directory | `/` |
-| Build command | `npm run typecheck && npm run lint && npm test && npm run build` |
-| Deploy command | `npm run db:migrate:remote && npm run deploy -w server` |
+
+| 項目             | 値                                                                |
+| -------------- | ---------------------------------------------------------------- |
+| Branch         | `main`                                                           |
+| Root directory | `/`                                                              |
+| Build command  | `npm run typecheck && npm run lint && npm test && npm run build` |
+| Deploy command | `npm run db:migrate:remote && npm run deploy -w server`          |
+
 
 型チェック・Lint・テストのどれかが失敗するとデプロイされない。ビルドのログは同じ画面の「Deployments」で見られる。
+
+### PRプレビュー
+
+Github Actionsで`CLOUDFLARE_API_TOKEN`を使ってプレビュー環境にデプロイする。
+
+認証については、`wrangler.jsonc`の`DEV_LOGIN`が`preveiw`または`workers.dev`の場合のみバイパスされる。
 
 ### 当日の準備
 
