@@ -5,6 +5,8 @@ export type Bindings = {
   DB: D1Database
   /** フロントエンドのURL（CORS・CSRFで許可するオリジン） */
   FRONTEND_URL: string
+  /** PRプレビューだけ "preview"（wrangler.jsonc の env.preview.previews）。認証アプリを使わないログインを有効にする */
+  DEV_LOGIN?: string
 }
 
 export type AppEnv = {

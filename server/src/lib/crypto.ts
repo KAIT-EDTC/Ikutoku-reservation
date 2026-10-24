@@ -44,9 +44,9 @@ export async function verifyTotp(secret: string, code: string, now = Date.now())
   return null
 }
 
-/** 認証アプリに出る名前。開発用・プレビュー用は本番と見分けられるよう (dev) / (preview) を付ける */
-export function otpauthUri(secret: string, { env }: { env?: 'dev' | 'preview' } = {}) {
-  const issuer = encodeURIComponent(env ? `Ikutoku-reservation (${env})` : 'Ikutoku-reservation')
+/** 認証アプリに出る名前。開発用は本番と見分けられるよう (dev) を付ける */
+export function otpauthUri(secret: string, { dev = false } = {}) {
+  const issuer = encodeURIComponent(dev ? 'Ikutoku-reservation (dev)' : 'Ikutoku-reservation')
   return `otpauth://totp/${issuer}:admin?secret=${secret}&issuer=${issuer}`
 }
 

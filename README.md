@@ -116,14 +116,9 @@ npm run setup-otp -- --remote      # 初回、または全員が認証アプリ�
 
 ### PRプレビュー
 
-PRを開くと `.github/workflows/preview.yml` が `https://pr-<番号>-ikutoku-reservation-preview.<subdomain>.workers.dev` にプレビューを作り、PRを閉じると消す（`server/wrangler.jsonc` の `env.preview`）。D1 は全PRで `ikutoku-reservation-preview` を1つ共有し、デプロイのたびに空にしてマイグレーションとシードを入れ直す（最後にデプロイしたPRのデータになる）。
+PRを開くと `.github/workflows/preview.yml` が `https://pr-<番号>-ikutoku-reservation-preview.<subdomain>.workers.dev` にプレビューを作り、PRを閉じると消す（`server/wrangler.jsonc` の `env.preview`）。D1 は全PRで `ikutoku-reservation-preview` を1つ共有し、デプロイのたびに空にしてマイグレーションとシードを入れ直す（最後にデプロイしたPRのデータになる）。GitHub の `preview` environment に secret `CLOUDFLARE_API_TOKEN`（Workers と D1 を編集できる Cloudflare の API トークン）が要る。
 
-GitHub の `preview` environment に次の secret が要る。
-
-| secret | 値 |
-| --- | --- |
-| `CLOUDFLARE_API_TOKEN` | Workers と D1 を編集できる Cloudflare の API トークン |
-| `PREVIEW_TOTP_SECRET` | `npm run setup-otp -- --preview` で発行した手入力用キー。表示されたQRをメンバーの認証アプリに登録すると、プレビューの `/admin` にログインできる |
+プレビューの `/admin/login` には「コードなしでログイン」が出る（`DEV_LOGIN=preview` のときだけ）。URLを知っていれば誰でも管理画面に入れるが、プレビューは本番と別の Worker・D1 で、中身はシードのダミーだけ。
 
 ### 当日の準備
 

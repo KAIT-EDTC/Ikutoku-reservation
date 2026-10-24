@@ -69,6 +69,8 @@
         }
       ],
       "previews": {
+        // 認証アプリのコードなしでログインできるようにする（features/auth/routes.ts の /preview-login）。FRONTEND_URL は CI が --var で渡す
+        "vars": { "DEV_LOGIN": "preview" },
         "d1_databases": [
           {
             "binding": "DB",

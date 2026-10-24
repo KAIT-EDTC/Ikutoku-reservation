@@ -15,16 +15,22 @@ export async function clientLoader() {
   // ログイン済みなら管理画面へ
   const res = await api.auth.me.$get().catch(() => null)
   if (res?.ok) throw redirect('/admin')
-  return null
+  // PRプレビュー（workers.dev）だけ、コードなしのログインを出す。本番では API 側も 404 を返す
+  return { preview: location.hostname.endsWith('.workers.dev') }
 }
 
 export async function clientAction({ request }: Route.ClientActionArgs) {
-  const result = await submit(loginSchema, { code: text(await request.formData(), 'code') }, (json) => unwrap(api.auth.login.$post({ json })))
+  const form = await request.formData()
+  if (text(form, 'intent') === 'preview') {
+    await unwrap(api.auth['preview-login'].$post())
+    return redirect('/admin')
+  }
+  const result = await submit(loginSchema, { code: text(form, 'code') }, (json) => unwrap(api.auth.login.$post({ json })))
   return result.errors ?? redirect('/admin')
 }
 
 /** A-01: 共有の管理者アカウント。認証アプリの6桁コードでログインする */
-export default function LoginPage({ actionData }: Route.ComponentProps) {
+export default function LoginPage({ loaderData, actionData }: Route.ComponentProps) {
   const submitting = useNavigation().state === 'submitting'
   return (
     <PublicShell>
@@ -46,6 +52,14 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
           ログイン
         </Button>
       </Form>
+      {loaderData.preview && (
+        <Form method="post" className={css({ mt: 'lg' })}>
+          <input type="hidden" name="intent" value="preview" />
+          <Button type="submit" variant="ghost" block>
+            コードなしでログイン（プレビュー専用）
+          </Button>
+        </Form>
+      )}
     </PublicShell>
   )
 }

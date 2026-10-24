@@ -66,19 +66,6 @@ jobs:
           npx wrangler d1 migrations apply DB --remote --env preview
           npx wrangler d1 execute DB --remote --env preview --file seed/seed.sql
 
-      # 管理者はプレビュー用の秘密鍵（npm run setup-otp -- --preview で発行）で入れる。
-      # リポジトリが公開なので、鍵はリポジトリやログに出さず secret から渡す
-      - name: Add admin
-        working-directory: server
-        env:
-          PREVIEW_TOTP_SECRET: ${{ secrets.PREVIEW_TOTP_SECRET }}
-        run: |
-          if [[ ! "$PREVIEW_TOTP_SECRET" =~ ^[A-Z2-7]+$ ]]; then
-            echo "::warning::PREVIEW_TOTP_SECRET が未登録か形式が違うので、管理画面にはログインできません"
-            exit 0
-          fi
-          npx wrangler d1 execute DB --remote --env preview --command "INSERT INTO admins (login_id, totp_secret) VALUES ('admin', '$PREVIEW_TOTP_SECRET') ON CONFLICT (login_id) DO UPDATE SET totp_secret = excluded.totp_secret, totp_last_step = 0"
-
       - name: Deploy Preview
         working-directory: server
         run: |

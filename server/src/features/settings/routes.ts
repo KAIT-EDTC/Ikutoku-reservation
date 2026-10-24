@@ -13,7 +13,7 @@ import { requireAdmin } from '../../middleware/auth.ts'
 import { getSettings } from '../slots/queries.ts'
 
 // ローカル開発（wrangler dev）では FRONTEND_URL が http://localhost になる
-const qr = (secret: string, frontendUrl: string) => ({ secret, svg: renderSVG(otpauthUri(secret, { env: frontendUrl.startsWith('http://localhost') ? 'dev' : undefined })) })
+const qr = (secret: string, frontendUrl: string) => ({ secret, svg: renderSVG(otpauthUri(secret, { dev: frontendUrl.startsWith('http://localhost') })) })
 
 /** 全体設定（A-05・A-09）と、ログイン用の認証アプリ */
 export const settingsRoute = new Hono<AppEnv>()
