@@ -36,6 +36,13 @@
       "when": 1792663468551,
       "tag": "0004_drop_slot_templates",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1792750463770,
+      "tag": "0005_slot_product",
+      "breakpoints": true
     }
   ]
 }

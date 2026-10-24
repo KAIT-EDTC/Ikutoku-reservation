@@ -18,7 +18,7 @@ let nextStart = 0
 // Each test gets its own slot so they never share capacity.
 async function slot({ date = '2099-01-03', capacity = 3, deleted = false } = {}) {
   const start = `${String(nextStart++).padStart(2, '0')}:00`
-  const r = await db.prepare('INSERT INTO slots (date, start_time, end_time, capacity, deleted) VALUES (?, ?, ?, ?, ?)').bind(date, start, `${start.slice(0, 2)}:30`, capacity, Number(deleted)).run()
+  const r = await db.prepare("INSERT INTO slots (date, product, start_time, end_time, capacity, deleted) VALUES (?, 'programming', ?, ?, ?, ?)").bind(date, start, `${start.slice(0, 2)}:30`, capacity, Number(deleted)).run()
   return r.meta.last_row_id
 }
 
