@@ -1,3 +1,5 @@
+import { nowJst } from '@ikutoku/shared'
+import { redirect } from 'react-router'
 import { css } from 'styled-system/css'
 import { Alert } from '~/components/ui/Alert'
 import { ChoiceGrid } from '~/features/kiosk/ChoiceGrid'
@@ -6,10 +8,14 @@ import { formatDate } from '~/lib/format'
 import type { Route } from './+types/dates'
 
 export async function clientLoader() {
-  return unwrap(api.kiosk.$get({ query: {} }))
+  const data = await unwrap(api.kiosk.$get({ query: {} }))
+  // 当日が開催日なら日付選択を飛ばして当日のコマを出す
+  const today = nowJst().date
+  if (data.dates.includes(today)) throw redirect(`/kiosk/${today}`)
+  return data
 }
 
-/** 受付のトップ。受付期間内の日付だけを出す */
+/** 受付のトップ。当日が開催日なら当日のコマへ進み、そうでなければ受付期間内の日付だけを出す */
 export default function KioskDatesPage({ loaderData }: Route.ComponentProps) {
   const { notice, dates } = loaderData
   return (
