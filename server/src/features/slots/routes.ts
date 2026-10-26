@@ -12,7 +12,7 @@ import { requireAdmin } from '../../middleware/auth.ts'
 import { reservationRows } from '../reservations/queries.ts'
 import { getSettings, listSlots } from './queries.ts'
 
-const SLOT_TAKEN = 'その開始時刻のコマは既にあります'
+const SLOT_TAKEN = 'その体験・開始時刻のコマは既にあります'
 
 export const slotsRoute = new Hono<AppEnv>()
   .use(requireAdmin)
@@ -50,11 +50,11 @@ export const slotsRoute = new Hono<AppEnv>()
   .post('/', validate('json', slotInputSchema), async (c) => {
     const db = createDb(c.env)
     const v = c.req.valid('json')
-    // 削除済みの同じ開始時刻があれば、その行を復活させる
+    // 削除済みの同じ体験・開始時刻があれば、その行を復活させる
     const r = await db
       .insert(slots)
       .values(v)
-      .onConflictDoUpdate({ target: [slots.date, slots.startTime], set: { endTime: v.endTime, capacity: v.capacity, deleted: false }, setWhere: eq(slots.deleted, true) })
+      .onConflictDoUpdate({ target: [slots.date, slots.product, slots.startTime], set: { endTime: v.endTime, capacity: v.capacity, deleted: false }, setWhere: eq(slots.deleted, true) })
       .run()
     if (!r.meta.changes) throw conflict(SLOT_TAKEN)
     await audit(db, 'admin', c.get('adminId'), 'slot_create', r.meta.last_row_id)

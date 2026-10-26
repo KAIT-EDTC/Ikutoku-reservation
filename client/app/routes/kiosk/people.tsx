@@ -1,4 +1,4 @@
-import { reserveSchema } from '@ikutoku/shared'
+import { productName, reserveSchema, type ProductId } from '@ikutoku/shared'
 import { useEffect, useState } from 'react'
 import { Form, redirect, useNavigate, useNavigation, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { css } from 'styled-system/css'
@@ -60,7 +60,7 @@ export default function KioskPeoplePage({ loaderData, actionData }: Route.Compon
       <>
         <h1 className={css({ fontSize: '3xl', fontWeight: '700' })}>人数を選んでください</h1>
         <p className={css({ mt: 'sm', color: 'fg.muted' })}>
-          {when}（残り{slot.remaining}名）
+          {productName(slot.product)} ／ {when}（残り{slot.remaining}名）
         </p>
         <ChoiceGrid choices={Array.from({ length: max }, (_, i) => ({ key: i + 1, label: `${i + 1}名`, to: `?n=${i + 1}` }))} />
         <ButtonLink to={`/kiosk/${date}`} size="xl" block>
@@ -74,6 +74,8 @@ export default function KioskPeoplePage({ loaderData, actionData }: Route.Compon
     <>
       <h1 className={css({ fontSize: '3xl', fontWeight: '700' })}>この内容で予約しますか？</h1>
       <dl className={css({ my: 'lg', p: 'lg', display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 'sm', columnGap: 'lg', fontSize: '2xl', bg: 'surface.subtle', borderWidth: '1px', borderRadius: 'lg' })}>
+        <dt className={css({ color: 'fg.muted' })}>体験</dt>
+        <dd>{productName(slot.product)}</dd>
         <dt className={css({ color: 'fg.muted' })}>日時</dt>
         <dd>{when}</dd>
         <dt className={css({ color: 'fg.muted' })}>人数</dt>
@@ -94,7 +96,7 @@ export default function KioskPeoplePage({ loaderData, actionData }: Route.Compon
 }
 
 /** F-03: 予約番号・日時・人数を大きく出し、カウントダウンのあとトップへ戻る */
-function Done({ reservation: r, seconds }: { reservation: { code: string; people: number; date: string; startTime: string; endTime: string }; seconds: number }) {
+function Done({ reservation: r, seconds }: { reservation: { code: string; people: number; date: string; product: ProductId; startTime: string; endTime: string }; seconds: number }) {
   const [left, setLeft] = useState(seconds)
   const navigate = useNavigate()
   useEffect(() => {
@@ -112,7 +114,7 @@ function Done({ reservation: r, seconds }: { reservation: { code: string; people
         <div className={css({ fontSize: 'md', color: 'fg.muted' })}>予約番号</div>
         <div className={css({ fontFamily: 'mono', fontSize: '6xl', fontWeight: '800', letterSpacing: '0.15em' })}>{r.code}</div>
         <div className={css({ fontSize: '2xl' })}>
-          {formatDate(r.date)} {formatTimes(r)} ／ {r.people}名
+          {productName(r.product)} ／ {formatDate(r.date)} {formatTimes(r)} ／ {r.people}名
         </div>
       </div>
       <ButtonLink to="/kiosk" replace variant="primary" size="xl" block>
