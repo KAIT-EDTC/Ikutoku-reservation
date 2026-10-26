@@ -9,7 +9,7 @@ import { actionRaw, boxRaw, labelRaw, paperRaw } from './styles'
 export function Menu({ published, slots }: { published: boolean; slots: PublicSlot[] }) {
   return (
     <section id="oshinagaki" aria-labelledby="oshinagaki-title" className={css(paperRaw, { scrollMarginTop: '16px' })}>
-      <img src="/mecademy/waves-top.svg" alt="" className={css({ position: 'absolute', top: 0, left: 0, mt: '-10px', ml: '6px', w: 'full', h: 'auto', pointerEvents: 'none' })} />
+      <img src="/mecademy/waves-top.svg" alt="" className={css({ position: 'absolute', top: 0, left: 0, mt: '-10px', ml: '7px', w: 'full', h: 'auto', pointerEvents: 'none' })} />
       <div className={css({ position: 'relative', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px 20px' })}>
         <h2 id="oshinagaki-title">
           <img src="/mecademy/oshinagaki.svg" alt="おしながき" width={256} height={64} className={css({ display: 'block', w: { base: '200px', md: '280px' }, h: 'auto' })} />
