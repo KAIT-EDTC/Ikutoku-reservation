@@ -37,7 +37,7 @@ export function Intro() {
           w: { base: 'calc(100% + 32px)', md: 'calc(100% + 80px)' },
           maxW: 'none',
           h: 'auto',
-          mx: { base: '-16px', md: '-40px' },
+          ml: '-60px',
           mb: { base: '-20px', md: '-36px' },
           mt: { base: '8px', md: '0' },
         })}
