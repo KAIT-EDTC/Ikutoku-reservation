@@ -4,10 +4,11 @@ import { index, layout, prefix, route, type RouteConfig } from '@react-router/de
 export default [
   // 公開（閲覧のみ）
   layout('routes/site-layout.tsx', [
-    index('routes/home.tsx', { id: 'home' }),
-    route('day/:date', 'routes/home.tsx', { id: 'day' }),
-    route('guide', 'routes/guide.tsx'),
-    route('news', 'routes/news.tsx'),
+    index('routes/home.tsx'),
+    // 以前の公開ページ。トップの1ページにまとめたので、トップの該当箇所へ送る
+    route('day/:date', 'routes/redirect-home.tsx', { id: 'old-day' }),
+    route('guide', 'routes/redirect-home.tsx', { id: 'old-guide' }),
+    route('news', 'routes/redirect-home.tsx', { id: 'old-news' }),
   ]),
 
   // 受付端末（登録済みの端末だけ。未登録なら API が 401 を返し、公開ページへ戻す）

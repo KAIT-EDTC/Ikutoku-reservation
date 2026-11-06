@@ -1,56 +1,48 @@
-import { Link } from 'react-router'
-import { css, cx } from 'styled-system/css'
-import { Alert } from '~/components/ui/Alert'
-import { EmptyState } from '~/components/ui/EmptyState'
-import { PageHeader } from '~/components/ui/PageHeader'
-import { ComingSoon } from '~/features/slots/ComingSoon'
-import { SlotStatusBadge } from '~/features/slots/SlotStatusBadge'
+import { useEffect } from 'react'
+import { useRevalidator } from 'react-router'
+import { css } from 'styled-system/css'
+import { Intro, Venue } from '~/features/mecademy/Intro'
+import { Menu } from '~/features/mecademy/Menu'
+import { boxRaw } from '~/features/mecademy/styles'
 import { api, unwrap } from '~/lib/api'
-import { formatDate, formatTimes } from '~/lib/format'
 import type { Route } from './+types/home'
 
-export const meta: Route.MetaFunction = () => [{ title: '予約空き状況 | EDTC' }]
+export const meta: Route.MetaFunction = () => [
+  { title: 'KAIT EDTC メカデミー | さわってあそべる！ロボット教室' },
+  { name: 'description', content: 'KAIT工房で開催するEDTCのロボット教室「メカデミー」。体験の内容と予約の空き状況。' },
+]
 
-export async function clientLoader({ params }: Route.ClientLoaderArgs) {
-  const date = 'date' in params && /^\d{4}-\d{2}-\d{2}$/.test(params.date ?? '') ? params.date : undefined
-  return unwrap(api.public.$get({ query: date ? { date } : {} }))
+export async function clientLoader() {
+  return unwrap(api.public.$get())
 }
 
 export { RouteErrorBoundary as ErrorBoundary } from '~/components/layout/RouteErrorBoundary'
 
-const tabStyle = css({ px: 'md', h: '36px', display: 'inline-flex', alignItems: 'center', fontSize: 'sm', fontWeight: '600', borderRadius: 'full', borderWidth: '1px', bg: 'surface', color: 'fg.muted', _hover: { color: 'fg' } })
-const tabActiveStyle = css({ bg: 'accent', borderColor: 'accent', color: 'fg.inverted', _hover: { color: 'fg.inverted' } })
+/** 公開トップ: ポスターの内容と、体験ごとの空き状況（F-01）。予約は会場の受付端末で行う */
+export default function HomePage({ loaderData }: Route.ComponentProps) {
+  const { published, notice, slots } = loaderData
+  const { revalidate } = useRevalidator()
 
-/** F-01: 日付ごとのコマと残り人数。予約ボタンは出さない */
-export default function AvailabilityPage({ loaderData }: Route.ComponentProps) {
-  const { published, notice, dates, date, slots } = loaderData
-  if (!published) return <ComingSoon />
+  // スマホで開きっぱなしにしたページに戻ってきたら、空き状況を読み直す
+  useEffect(() => {
+    const onVisible = () => document.visibilityState === 'visible' && revalidate()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [revalidate])
+
   return (
     <>
-      <PageHeader title="空き状況" description="予約は会場の受付で行います。○ 余裕あり / △ 残りわずか / × 満員" />
-      <div className={css({ display: 'flex', flexDirection: 'column', gap: 'lg' })}>
-        {notice && <Alert tone="info">{notice}</Alert>}
-        <nav className={css({ display: 'flex', flexWrap: 'wrap', gap: 'sm' })}>
-          {dates.map((d) => (
-            <Link key={d} to={`/day/${d}`} className={cx(tabStyle, d === date && tabActiveStyle)}>
-              {formatDate(d)}
-            </Link>
-          ))}
-        </nav>
-        {slots.length ? (
-          <ul className={css({ display: 'flex', flexDirection: 'column', borderWidth: '1px', borderRadius: 'lg', overflow: 'hidden' })}>
-            {slots.map((sl) => (
-              <li key={sl.id} className={css({ display: 'flex', alignItems: 'center', gap: 'md', px: 'lg', py: 'md', '&:not(:first-child)': { borderTopWidth: '1px' } })}>
-                <span className={css({ fontSize: 'lg', fontWeight: '600', flex: 1 })}>{formatTimes(sl)}</span>
-                {sl.bookable && <span className={css({ fontSize: 'sm', color: 'fg.muted' })}>残り{sl.remaining}名</span>}
-                <SlotStatusBadge status={sl.status} />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState title="表示できるコマがありません" />
-        )}
-      </div>
+      {notice && (
+        <section id="news" aria-labelledby="news-title" className={css(boxRaw, { p: { base: '14px 16px', md: '18px 24px' }, borderRadius: '6px' })}>
+          <h2 id="news-title" className={css({ display: 'inline-block', px: '10px', bg: 'poster.red', color: 'white', fontFamily: 'kaku', fontWeight: '700' })}>
+            お知らせ
+          </h2>
+          <p className={css({ mt: '8px', fontWeight: '700', whiteSpace: 'pre-wrap' })}>{notice}</p>
+        </section>
+      )}
+      <Intro />
+      <Venue />
+      <Menu published={published} slots={slots} />
     </>
   )
 }

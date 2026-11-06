@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { PRODUCT_IDS } from '../products.ts'
 
 const date = z.iso.date('日付を入力してください')
 const time = z.string().regex(/^\d{2}:\d{2}$/, '時刻を入力してください')
@@ -10,7 +11,7 @@ export const loginSchema = z.object({ code: z.string().regex(/^\d{6}$/, '6桁の
 
 const slotFields = z.object({ startTime: time, endTime: time, capacity })
 export const slotUpdateSchema = slotFields.refine((v) => v.startTime < v.endTime, timeOrder)
-export const slotInputSchema = slotFields.extend({ date }).refine((v) => v.startTime < v.endTime, timeOrder)
+export const slotInputSchema = slotFields.extend({ date, product: z.enum(PRODUCT_IDS, '体験を選んでください') }).refine((v) => v.startTime < v.endTime, timeOrder)
 
 /** 代理予約。overbook のときだけ定員を超えて登録できる */
 export const adminReserveSchema = z.object({

@@ -10,6 +10,7 @@ export const listSlots = (db: Db, where?: SQL) =>
     .select({
       id: slots.id,
       date: slots.date,
+      product: slots.product,
       startTime: slots.startTime,
       endTime: slots.endTime,
       capacity: slots.capacity,

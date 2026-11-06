@@ -15,7 +15,7 @@ export async function dayAction(request: Request) {
     case 'cancel':
       return (await catchApiError(() => unwrap(api.admin.reservations[':id'].cancel.$post(param)))).errors ?? { ok: true }
     case 'create': {
-      const values = { date: text(form, 'date'), startTime: text(form, 'startTime'), endTime: text(form, 'endTime'), capacity: int(form, 'capacity') }
+      const values = { date: text(form, 'date'), product: text(form, 'product'), startTime: text(form, 'startTime'), endTime: text(form, 'endTime'), capacity: int(form, 'capacity') }
       return (await submit(slotInputSchema, values, (json) => unwrap(api.admin.slots.$post({ json })))).errors ?? { ok: true }
     }
     case 'update': {

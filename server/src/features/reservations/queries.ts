@@ -16,6 +16,7 @@ export const reservationRows = (db: Db, where: SQL) =>
       cancelledAt: reservations.cancelledAt,
       deviceName: devices.name,
       date: slots.date,
+      product: slots.product,
       startTime: slots.startTime,
       endTime: slots.endTime,
     })
