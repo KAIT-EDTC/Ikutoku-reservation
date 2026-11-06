@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kaitedtc.ikutoku.kiosk.api.Products
 import com.kaitedtc.ikutoku.kiosk.api.Slot
 import com.kaitedtc.ikutoku.kiosk.ui.setup.PinPad
 import com.kaitedtc.ikutoku.kiosk.ui.setup.SetupScreen
@@ -63,6 +64,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * 画面の作りは指定席券売機（JR 東日本の公式「指定席券売機を体験する」の画面）にならう:
  * 黒い見出し帯（強調語は黄色）・灰色の地・濃い灰色のボタン・赤い丸の取消・橙の「前画面に戻る」・緑の確認。
  * ロゴ・アイコン・画像・音声は使わない。
+ * 人数は体験するお子さまの数で数える（保護者は数えない。docs/member-spec.md）。
  */
 
 @Composable
@@ -73,22 +75,26 @@ fun KioskApp(vm: KioskViewModel, kiosk: KioskControls) {
     }
 
     Box(Modifier.fillMaxSize().background(Kiosk.Body)) {
-        when {
-            vm.staffOpen -> SetupScreen(vm, kiosk, onClose = vm::closeStaff)
-            askPin -> PinPad(
-                expected = vm.store.staffPin,
-                onCancel = { askPin = false },
-                onOk = {
-                    askPin = false
-                    vm.openStaff()
-                },
-            )
-            else -> {
-                KioskFlow(vm)
-                // 左上を3秒長押しで係員メニュー（お客さんには見えない）
-                StaffCorner(Modifier.align(Alignment.TopStart), onLongPress = openStaff)
+        // どの画面でも上に灰色の帯（予約受付・電池・時計）
+        Column(Modifier.fillMaxSize()) {
+            GrayTopBand()
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    vm.staffOpen -> SetupScreen(vm, kiosk, onClose = vm::closeStaff)
+                    askPin -> PinPad(
+                        expected = vm.store.staffPin,
+                        onCancel = { askPin = false },
+                        onOk = {
+                            askPin = false
+                            vm.openStaff()
+                        },
+                    )
+                    else -> KioskFlow(vm)
+                }
             }
         }
+        // 左上（帯の「予約受付」）を3秒長押しで係員メニュー（お客さんには見えない）
+        if (!vm.staffOpen && !askPin) StaffCorner(Modifier.align(Alignment.TopStart), onLongPress = openStaff)
     }
 }
 
@@ -120,8 +126,10 @@ private fun StaffCorner(modifier: Modifier, onLongPress: () -> Unit) {
 
 private fun Step.headline() = when (this) {
     is Step.Dates -> Headline("ご希望の", "日付", "をお選びください")
-    is Step.Times -> Headline("ご希望の", "時間", "をお選びください", sub = "${Dates.short(date)}　開始時刻の早い順です")
-    is Step.People -> Headline("", "ご利用人数", "をお選びください")
+    is Step.Experiences -> Headline("ご希望の", "体験", "をお選びください", sub = Dates.short(date))
+    // 1行目に体験名、2行目に「ご希望の時間をお選びください」
+    is Step.Times -> Headline("${Products.name(product)}\nご希望の", "時間", "をお選びください", sub = "${Dates.short(date)}　開始時刻の早い順です")
+    is Step.People -> Headline("体験する", "お子さまの人数", "を\nお選びください", sub = "保護者の方は数えません")
     is Step.Confirm -> Headline("よろしければ", "確認", "を押してください", green = true)
     is Step.Issuing -> Headline("", "予約券", "を発券しています", sub = "しばらくお待ちください")
     is Step.Done -> Headline("", "予約券", "をお取りください")
@@ -133,8 +141,9 @@ private fun Step.headline() = when (this) {
 /** 画面が変わったときの音声案内: 録音した声の名前（res/raw）と、無いときに音声合成で読む文 */
 private fun Step.voice(): Pair<String?, String> = when (this) {
     is Step.Dates -> "v_date" to "ご希望の日付を、お選びください"
+    is Step.Experiences -> "v_experience" to "ご希望の体験を、お選びください"
     is Step.Times -> "v_time" to "ご希望の時間を、お選びください"
-    is Step.People -> "v_people" to "ご利用人数を、お選びください"
+    is Step.People -> "v_people" to "体験するお子さまの人数を、お選びください。保護者の方は、数えません"
     is Step.Confirm -> "v_confirm" to "よろしければ、確認を、押してください"
     is Step.Done -> if (printError == null) "v_take_ticket" to "予約券を、お取りください" else null to "印刷できませんでした。この画面の予約番号を、係員にお見せください"
     is Step.Failure -> voice to message
@@ -142,15 +151,22 @@ private fun Step.voice(): Pair<String?, String> = when (this) {
     else -> null to ""
 }
 
-/** ここまでの入力内容（日付・時間・人数） */
-private fun Step.entered(): Triple<String?, Slot?, Int?>? = when (this) {
-    is Step.Times -> Triple(date, null, null)
-    is Step.People -> Triple(slot.date, slot, null)
-    is Step.Confirm -> Triple(slot.date, slot, people)
+/** ここまでの入力内容（日付・体験・時間・人数） */
+private data class Entered(val date: String, val product: String? = null, val slot: Slot? = null, val people: Int? = null)
+
+private fun Step.entered(): Entered? = when (this) {
+    is Step.Experiences -> Entered(date)
+    is Step.Times -> Entered(date, product)
+    is Step.People -> Entered(slot.date, slot.product, slot)
+    is Step.Confirm -> Entered(slot.date, slot.product, slot, people)
     else -> null
 }
 
-private fun Step.hasFooter() = this is Step.Dates || this is Step.Times || this is Step.People || this is Step.Confirm || this is Step.Failure
+private fun Step.hasFooter() =
+    this is Step.Dates || this is Step.Experiences || this is Step.Times || this is Step.People || this is Step.Confirm || this is Step.Failure
+
+/** 例: お子さま 2名 */
+private fun children(n: Int) = "お子さま ${n}名"
 
 @Composable
 private fun KioskFlow(vm: KioskViewModel) {
@@ -183,6 +199,7 @@ private fun KioskFlow(vm: KioskViewModel) {
                     Box(Modifier.fillMaxSize()) {
                         when (s) {
                             is Step.Dates -> DatesScreen(s, vm)
+                            is Step.Experiences -> ExperiencesScreen(s, vm)
                             is Step.Times -> TimesScreen(s, vm)
                             is Step.People -> PeopleScreen(s, vm)
                             is Step.Confirm -> ConfirmScreen(s, vm)
@@ -196,22 +213,20 @@ private fun KioskFlow(vm: KioskViewModel) {
                 }
             }
             when {
-                step.hasFooter() -> FooterBand(
-                    onCancel = { vm.sounds.beep(); vm.reset() },
-                    onBack = vm::back,
-                    onCall = { vm.callStaff() },
-                )
-                step is Step.Done -> FooterBand(onCancel = null, onBack = null, onCall = { vm.callStaff() })
-                else -> FooterBand(onCancel = null, onBack = null, onCall = null)
+                step.hasFooter() -> FooterBand(onCancel = { vm.sounds.beep(); vm.reset() }, onBack = vm::back)
+                // 完了は上の電池の帯のぶん縦が足りないので、空の帯を出さない
+                step is Step.Done -> {}
+                else -> FooterBand(onCancel = null, onBack = null)
             }
         }
         if (vm.loading) Wait()
-        step.entered()?.takeIf { summary }?.let { (date, slot, people) ->
+        step.entered()?.takeIf { summary }?.let { e ->
             Popup("ここまでの入力内容", onDismiss = { summary = false }) {
                 Column(Modifier.fillMaxWidth().whiteTable()) {
-                    TableRow("日付", date?.let { Dates.short(it) } ?: "－")
-                    TableRow("時間", slot?.let { slotTime(it) } ?: "－")
-                    TableRow("人数", people?.let { "${it}名" } ?: "－", last = true)
+                    TableRow("日付", Dates.short(e.date))
+                    TableRow("体験", e.product?.let { Products.name(it) } ?: "－")
+                    TableRow("時間", e.slot?.let { slotTime(it) } ?: "－")
+                    TableRow("人数", e.people?.let { children(it) } ?: "－", last = true)
                 }
                 Spacer(Modifier.height(14.dp))
                 KioskButton({ vm.sounds.beep(); summary = false }, Modifier.width(160.dp), minHeight = 48.dp) {
@@ -255,6 +270,8 @@ private fun GrayTopBand() {
     ) {
         Text("予約受付", color = Kiosk.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.weight(1f))
+        BatteryGauge()
+        Spacer(Modifier.width(10.dp))
         Clock()
     }
 }
@@ -278,21 +295,8 @@ private fun Clock() {
 }
 
 @Composable
-private fun CallButton(onClick: () -> Unit) {
-    Box(
-        Modifier
-            .background(Color.Black, RoundedCornerShape(8.dp))
-            .padding(2.dp)
-            .border(2.dp, Color.White, RoundedCornerShape(6.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-    ) { Text("係員呼出", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
-}
-
-@Composable
 private fun TopMenu(vm: KioskViewModel) {
     Column(Modifier.fillMaxSize().background(Color.White)) {
-        GrayTopBand()
         Column(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.height(18.dp))
             Text("いらっしゃいませ", color = Kiosk.Ink, fontSize = 26.sp, fontWeight = FontWeight.Bold)
@@ -301,7 +305,7 @@ private fun TopMenu(vm: KioskViewModel) {
             KioskButton(vm::start, Modifier.fillMaxWidth(), minHeight = 132.dp, contentPadding = 14.dp) {
                 Text("予約券を発券する", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
                 Box(Modifier.padding(vertical = 10.dp).fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.7f)))
-                Text("日付・時間・人数を選んでください", color = Color.White, fontSize = 17.sp)
+                Text("日付・体験・時間・人数を選びます", color = Color.White, fontSize = 17.sp)
             }
             Spacer(Modifier.height(8.dp))
             Text("▲ ここにタッチしてください", color = Buttons.Red.bottom, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.alpha(blink()))
@@ -311,17 +315,12 @@ private fun TopMenu(vm: KioskViewModel) {
             Text("予約券は開始時刻に受付へお持ちください", color = Kiosk.SubInk, fontSize = 14.sp, modifier = Modifier.padding(bottom = 10.dp))
         }
         LedTicker(vm.notice)
-        Row(Modifier.fillMaxWidth().background(Kiosk.Band).padding(horizontal = 10.dp, vertical = 8.dp)) {
-            Spacer(Modifier.weight(1f))
-            CallButton { vm.callStaff() }
-        }
     }
 }
 
 @Composable
 private fun NotRegisteredScreen() {
     Column(Modifier.fillMaxSize().background(Color.White)) {
-        GrayTopBand()
         Column(
             Modifier.weight(1f).fillMaxWidth().padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -407,7 +406,33 @@ private fun MonthGrid(year: Int, month: Int, open: Set<String>, today: String, o
     }
 }
 
-// ---- ② 時間（列車の一覧にならう表） ----------------------------------------
+// ---- ② 体験 ----------------------------------------------------------------
+
+/** その日にコマがある体験だけを大きなボタンで出す。予約できるコマが無い体験は押せない */
+@Composable
+private fun ExperiencesScreen(s: Step.Experiences, vm: KioskViewModel) {
+    val groups = Products.group(s.slots)
+    if (groups.isEmpty()) {
+        Message("この日の予約枠はありません")
+        return
+    }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        groups.forEach { (product, slots) ->
+            val open = slots.count { it.bookable }
+            KioskButton({ vm.pickExperience(s.date, product) }, Modifier.fillMaxWidth(), enabled = open > 0, minHeight = 104.dp, contentPadding = 12.dp) {
+                Text(Products.name(product), color = if (open > 0) Color.White else Color(0xFFE2E2E2), fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    if (open > 0) "空きのある時間 ${open}つ" else "満席・受付終了",
+                    color = if (open > 0) Color.White else Color(0xFFE2E2E2),
+                    fontSize = 16.sp,
+                )
+            }
+        }
+    }
+}
+
+// ---- ③ 時間（列車の一覧にならう表） ----------------------------------------
 
 @Composable
 private fun TimesScreen(s: Step.Times, vm: KioskViewModel) {
@@ -465,13 +490,13 @@ private fun SlotRow(slot: Slot, onClick: () -> Unit) {
     }
 }
 
-// ---- ③ 人数 ----------------------------------------------------------------
+// ---- ④ 人数（体験するお子さまの数） ----------------------------------------
 
 @Composable
 private fun PeopleScreen(s: Step.People, vm: KioskViewModel) {
     val max = minOf(vm.maxPeople, s.slot.remaining).coerceAtLeast(1)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("1組 ${max}名まで", color = Kiosk.SubInk, fontSize = 14.sp)
+        Text("1組 お子さま${max}名まで（大人の予約は不要）", color = Kiosk.SubInk, fontSize = 14.sp)
         (1..max).chunked(3).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { n ->
@@ -487,15 +512,16 @@ private fun PeopleScreen(s: Step.People, vm: KioskViewModel) {
     }
 }
 
-// ---- ④ 確認 ----------------------------------------------------------------
+// ---- ⑤ 確認 ----------------------------------------------------------------
 
 @Composable
 private fun ConfirmScreen(s: Step.Confirm, vm: KioskViewModel) {
     Column(Modifier.fillMaxSize().padding(10.dp)) {
         Column(Modifier.fillMaxWidth().whiteTable()) {
             TableRow("日付", "${Dates.monthDay(s.slot.date)}（${"日月火水木金土"[Dates.weekday(s.slot.date)]}）", valueSize = 24)
+            TableRow("体験", Products.name(s.slot.product), valueSize = 24)
             TableRow("時間", slotTime(s.slot), valueSize = 24)
-            TableRow("人数", "${s.people}名", valueSize = 24)
+            TableRow("人数", children(s.people), valueSize = 24)
             Column(Modifier.fillMaxWidth().padding(10.dp)) {
                 Text("ご案内", color = Kiosk.Ink, fontSize = 15.sp)
                 Text("・予約券は開始時刻に受付へお持ちください", color = Kiosk.Ink, fontSize = 13.sp)
@@ -539,7 +565,7 @@ private fun DoneScreen(s: Step.Done, vm: KioskViewModel) {
     Column(Modifier.fillMaxSize().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         if (s.printError == null) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                DeviceIllustration(paper = 1f, highlight = blink(500), modifier = Modifier.size(120.dp, 158.dp))
+                DeviceIllustration(paper = 1f, highlight = blink(500), modifier = Modifier.size(100.dp, 132.dp))
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text("本体上部の", color = Kiosk.Ink, fontSize = 18.sp)
@@ -556,20 +582,21 @@ private fun DoneScreen(s: Step.Done, vm: KioskViewModel) {
                 Text("この画面の予約番号を係員にお見せください", color = Kiosk.Ink, fontSize = 14.sp)
             }
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(6.dp))
         Column(Modifier.fillMaxWidth().whiteTable()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("予約番号", color = Kiosk.Ink, fontSize = 15.sp, modifier = Modifier.width(84.dp).padding(start = 10.dp))
                 Text(r.code, color = Kiosk.Ink, fontSize = 64.sp, fontWeight = FontWeight.Bold, letterSpacing = 8.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
             }
             Box(Modifier.fillMaxWidth().height(1.dp).background(Kiosk.Line))
+            TableRow("体験", Products.name(r.product))
             TableRow("日時", "${Dates.short(r.date)}  ${Dates.time(r.startTime)}〜${Dates.time(r.endTime)}")
-            TableRow("人数", "${r.people}名", last = true)
+            TableRow("人数", children(r.people), last = true)
         }
         Spacer(Modifier.height(6.dp))
         Text("予約券は開始時刻に受付へお持ちください", color = Kiosk.Ink, fontSize = 15.sp)
         Spacer(Modifier.weight(1f))
-        if (thanks) Text("ありがとうございました", color = Kiosk.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+        if (thanks) Text("ありがとうございました", color = Kiosk.Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             KioskButton(vm::reprint, Modifier.weight(1f), minHeight = 56.dp) {
                 Text("もう一度印刷", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)

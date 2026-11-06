@@ -8,6 +8,7 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.core.content.res.ResourcesCompat
 import com.kaitedtc.ikutoku.kiosk.R
+import com.kaitedtc.ikutoku.kiosk.api.Products
 import com.kaitedtc.ikutoku.kiosk.api.Reservation
 import com.kaitedtc.ikutoku.kiosk.util.Dates
 
@@ -15,7 +16,10 @@ import com.kaitedtc.ikutoku.kiosk.util.Dates
 data class Receipt(
     val title: String,
     val code: String,
+    /** 体験名（プログラミング体験など） */
+    val product: String,
     val dateTime: String,
+    /** 体験するお子さまの人数（保護者は数えない） */
     val people: Int,
     val issued: String,
     val qrUrl: String,
@@ -24,6 +28,7 @@ data class Receipt(
         fun of(r: Reservation, title: String, deviceName: String, serverUrl: String) = Receipt(
             title = title,
             code = r.code,
+            product = Products.name(r.product),
             dateTime = "${Dates.short(r.date)} ${Dates.time(r.startTime)}〜${Dates.time(r.endTime)}",
             people = r.people,
             issued = "発券 ${Dates.nowShort()}  $deviceName".trim(),
@@ -34,6 +39,7 @@ data class Receipt(
         fun sample(deviceName: String, title: String) = Receipt(
             title = title,
             code = "TEST",
+            product = Products.all.first().name,
             dateTime = "テスト印刷 ${Dates.nowShort()}",
             people = 1,
             issued = "発券 ${Dates.nowShort()}  $deviceName".trim(),
@@ -61,7 +67,7 @@ object ReceiptRenderer {
         }
     }
 
-    /** QR より上: 団体名・予約番号・日時・人数 */
+    /** QR より上: 団体名・予約番号・体験・日時・人数 */
     fun renderTop(r: Receipt): Bitmap = draw { y0 ->
         var y = y0
         if (r.title.isNotEmpty()) y = center(r.title, 28f, bold = true, y = y)
@@ -69,8 +75,9 @@ object ReceiptRenderer {
         y = center("予約番号", 26f, y = y)
         y = center(r.code, 120f, bold = true, y = y, letterSpacing = 0.1f)
         y = rule(y)
+        y = row("体験", r.product, y)
         y = row("日時", r.dateTime, y)
-        y = row("人数", "${r.people}名", y)
+        y = row("人数", "お子さま ${r.people}名", y)
         rule(y)
     }
 

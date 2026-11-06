@@ -1,5 +1,10 @@
 package com.kaitedtc.ikutoku.kiosk.ui.kiosk
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
@@ -32,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -40,13 +46,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -58,6 +67,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import com.kaitedtc.ikutoku.kiosk.api.Products
 import com.kaitedtc.ikutoku.kiosk.api.Slot
 import com.kaitedtc.ikutoku.kiosk.ui.theme.Kiosk
 import com.kaitedtc.ikutoku.kiosk.util.Dates
@@ -192,9 +203,9 @@ private fun headline(h: Headline): AnnotatedString = buildAnnotatedString {
     append(h.after)
 }
 
-/** 下の灰色の帯: 取消・前画面に戻る・係員呼出 */
+/** 下の灰色の帯: 取消・前画面に戻る */
 @Composable
-fun FooterBand(onCancel: (() -> Unit)?, onBack: (() -> Unit)?, onCall: (() -> Unit)?) {
+fun FooterBand(onCancel: (() -> Unit)?, onBack: (() -> Unit)?) {
     Row(
         Modifier.fillMaxWidth().background(Kiosk.Band).heightIn(min = 72.dp).padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -205,17 +216,6 @@ fun FooterBand(onCancel: (() -> Unit)?, onBack: (() -> Unit)?, onCall: (() -> Un
             KioskButton(it, Modifier.width(132.dp), colors = Buttons.Orange, minHeight = 44.dp, contentPadding = 4.dp) {
                 Text("前画面に戻る", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
-        }
-        Spacer(Modifier.weight(1f))
-        onCall?.let {
-            Box(
-                Modifier
-                    .background(Color.Black, RoundedCornerShape(8.dp))
-                    .padding(2.dp)
-                    .border(2.dp, Color.White, RoundedCornerShape(6.dp))
-                    .clickable(onClick = it)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            ) { Text("係員呼出", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
         }
     }
 }
@@ -335,11 +335,13 @@ fun DeviceIllustration(paper: Float, highlight: Float, modifier: Modifier = Modi
 }
 
 /**
- * 発車標（LED 表示板）風の空き状況。行が多いときは5行ずつ切り替える。
+ * 発車標（LED 表示板）風の空き状況。体験ごとにページを分け、行が多いときは5行ずつ切り替える。
  */
 @Composable
 fun DepartureBoard(date: String, slots: List<Slot>, modifier: Modifier = Modifier) {
-    val pages = slots.chunked(5).ifEmpty { listOf(emptyList()) }
+    val pages = Products.group(slots)
+        .flatMap { (product, list) -> list.chunked(5).map { product to it } }
+        .ifEmpty { listOf("" to emptyList()) }
     var page by remember(slots) { mutableIntStateOf(0) }
     LaunchedEffect(pages.size) {
         while (pages.size > 1) {
@@ -348,6 +350,7 @@ fun DepartureBoard(date: String, slots: List<Slot>, modifier: Modifier = Modifie
         }
     }
     val shape = RoundedCornerShape(6.dp)
+    val (product, rows) = pages[page.coerceIn(0, pages.lastIndex)]
     Column(
         modifier
             .background(Kiosk.Board, shape)
@@ -361,11 +364,14 @@ fun DepartureBoard(date: String, slots: List<Slot>, modifier: Modifier = Modifie
             Spacer(Modifier.weight(1f))
             if (pages.size > 1) Text("${page + 1}/${pages.size}", color = Kiosk.LedDim, fontSize = 12.sp)
         }
+        if (product.isNotEmpty()) {
+            Text(Products.name(product), color = Kiosk.LedWhite, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(top = 2.dp))
+        }
         Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(Color(0xFF333333)))
         if (slots.isEmpty()) {
             Text("この日の予約枠はありません", color = Kiosk.LedDim, fontSize = 16.sp, modifier = Modifier.padding(vertical = 6.dp))
         }
-        pages[page.coerceIn(0, pages.lastIndex)].forEach { slot ->
+        rows.forEach { slot ->
             val a = slot.availability()
             Row(Modifier.fillMaxWidth().height(28.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(Dates.time(slot.startTime), color = Kiosk.LedAmber, fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(70.dp))
@@ -395,6 +401,85 @@ fun LedTicker(text: String, modifier: Modifier = Modifier) {
             .padding(vertical = 7.dp)
             .basicMarquee(iterations = Int.MAX_VALUE, velocity = 60.dp),
     )
+}
+
+/** 電池の残量（0〜100）と充電中か */
+data class BatteryState(val percent: Int, val charging: Boolean)
+
+private fun Intent.battery(): BatteryState? {
+    val level = getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+    val scale = getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+    if (level < 0 || scale <= 0) return null
+    val status = getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+    val plugged = getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
+    val charging = plugged != 0 || status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+    return BatteryState(level * 100 / scale, charging)
+}
+
+/** ACTION_BATTERY_CHANGED を受けて電池の状態を返す。sticky なので登録した時点の値がすぐ取れる */
+@Composable
+fun rememberBattery(): BatteryState? {
+    val context = LocalContext.current
+    var state by remember { mutableStateOf<BatteryState?>(null) }
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context, intent: Intent) {
+                state = intent.battery() ?: state
+            }
+        }
+        val sticky = ContextCompat.registerReceiver(context, receiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
+        sticky?.battery()?.let { state = it }
+        onDispose { context.unregisterReceiver(receiver) }
+    }
+    return state
+}
+
+/** 上の帯の電池の形と %。充電中は稲妻、20% 以下で充電していなければ赤く点滅 */
+@Composable
+fun BatteryGauge(modifier: Modifier = Modifier) {
+    val b = rememberBattery() ?: return
+    val low = b.percent <= 20 && !b.charging
+    val fill = when {
+        b.percent <= 20 -> Color(0xFFD32F2F)
+        b.percent <= 50 -> Color(0xFFE0A000)
+        else -> Color(0xFF2E9E2E)
+    }
+    Row(modifier.alpha(if (low) blink(500) else 1f), verticalAlignment = Alignment.CenterVertically) {
+        Canvas(Modifier.size(width = 34.dp, height = 18.dp)) {
+            val nub = 3.dp.toPx()
+            val stroke = 2.dp.toPx()
+            val body = Size(size.width - nub, size.height)
+            drawRoundRect(Kiosk.Ink, size = body, cornerRadius = CornerRadius(3.dp.toPx()), style = Stroke(stroke))
+            drawRoundRect(Kiosk.Ink, topLeft = Offset(body.width, size.height * 0.3f), size = Size(nub, size.height * 0.4f), cornerRadius = CornerRadius(1.dp.toPx()))
+            val inset = stroke + 1.dp.toPx()
+            val w = (body.width - inset * 2) * b.percent.coerceIn(0, 100) / 100f
+            drawRect(fill, topLeft = Offset(inset, inset), size = Size(w, body.height - inset * 2))
+            if (b.charging) {
+                // 稲妻（白で縁取りして、残量の色の上でも見えるように）
+                val cx = body.width / 2
+                val h = body.height
+                val bolt = Path().apply {
+                    moveTo(cx + h * 0.10f, h * 0.10f)
+                    lineTo(cx - h * 0.28f, h * 0.56f)
+                    lineTo(cx - h * 0.02f, h * 0.56f)
+                    lineTo(cx - h * 0.12f, h * 0.90f)
+                    lineTo(cx + h * 0.28f, h * 0.44f)
+                    lineTo(cx + h * 0.02f, h * 0.44f)
+                    close()
+                }
+                drawPath(bolt, Color.White, style = Stroke(1.5.dp.toPx()))
+                drawPath(bolt, Kiosk.Ink)
+            }
+        }
+        Spacer(Modifier.width(4.dp))
+        Text(
+            "${b.percent}%",
+            color = if (low) Color(0xFFD32F2F) else Kiosk.Ink,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        if (b.charging) Text("充電中", color = Kiosk.Ink, fontSize = 12.sp, modifier = Modifier.padding(start = 3.dp))
+    }
 }
 
 /** 表示を少し遅らせる（「ありがとうございました」など） */
