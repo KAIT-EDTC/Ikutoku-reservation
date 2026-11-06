@@ -1,5 +1,6 @@
 // D1 のスキーマの正。`npm run db:generate` がここから drizzle/ のマイグレーションを作る。
 // どの列にも個人情報は持たない（仕様7章）。
+import { PRODUCT_IDS } from '@ikutoku/shared'
 import { sql } from 'drizzle-orm'
 import { check, index, integer, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core'
 
@@ -14,29 +15,16 @@ export const settings = sqliteTable('settings', {
   published: integer('published', { mode: 'boolean' }).notNull().default(false),
 }, (t) => [check('settings_single_row', sql`${t.id} = 1`)])
 
-export const slotTemplates = sqliteTable('slot_templates', {
-  id: integer('id').primaryKey(),
-  weekday: integer('weekday').notNull(),
-  startTime: text('start_time').notNull(),
-  endTime: text('end_time').notNull(),
-  capacity: integer('capacity').notNull(),
-  validFrom: text('valid_from'),
-  validTo: text('valid_to'),
-}, (t) => [
-  check('slot_templates_weekday', sql`${t.weekday} BETWEEN 0 AND 6`),
-  check('slot_templates_capacity', sql`${t.capacity} >= 0`),
-])
-
-// deleted は論理削除（ひな形からの再生成で復活させないため）
+// deleted は論理削除（取消済みの予約が参照しているため行は残す）。同じ日・同じ体験で開始時刻は重ならない
 export const slots = sqliteTable('slots', {
   id: integer('id').primaryKey(),
   date: text('date').notNull(),
+  product: text('product', { enum: PRODUCT_IDS }).notNull(),
   startTime: text('start_time').notNull(),
   endTime: text('end_time').notNull(),
   capacity: integer('capacity').notNull(),
   deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false),
-  templateId: integer('template_id').references(() => slotTemplates.id, { onDelete: 'set null' }),
-}, (t) => [unique().on(t.date, t.startTime), check('slots_capacity', sql`${t.capacity} >= 0`)])
+}, (t) => [unique().on(t.date, t.product, t.startTime), check('slots_capacity', sql`${t.capacity} >= 0`)])
 
 export const reservations = sqliteTable('reservations', {
   id: integer('id').primaryKey(),

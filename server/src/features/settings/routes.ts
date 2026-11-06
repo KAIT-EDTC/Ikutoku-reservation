@@ -10,7 +10,7 @@ import { newTotpSecret, otpauthUri, verifyTotp } from '../../lib/crypto.ts'
 import { badRequest } from '../../lib/errors.ts'
 import { validate } from '../../lib/validator.ts'
 import { requireAdmin } from '../../middleware/auth.ts'
-import { generateSlots, getSettings } from '../slots/queries.ts'
+import { getSettings } from '../slots/queries.ts'
 
 // ローカル開発（wrangler dev）では FRONTEND_URL が http://localhost になる
 const qr = (secret: string, frontendUrl: string) => ({ secret, svg: renderSVG(otpauthUri(secret, { dev: frontendUrl.startsWith('http://localhost') })) })
@@ -22,7 +22,6 @@ export const settingsRoute = new Hono<AppEnv>()
   .put('/', validate('json', settingsInputSchema), async (c) => {
     const db = createDb(c.env)
     await db.update(settings).set(c.req.valid('json')).where(eq(settings.id, 1)).run()
-    await generateSlots(db)
     await audit(db, 'admin', c.get('adminId'), 'settings_update')
     return c.json({ ok: true })
   })

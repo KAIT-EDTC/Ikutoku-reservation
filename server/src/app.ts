@@ -11,7 +11,6 @@ import { publicRoute } from './features/public/routes.ts'
 import { reservationsRoute } from './features/reservations/routes.ts'
 import { settingsRoute } from './features/settings/routes.ts'
 import { slotsRoute } from './features/slots/routes.ts'
-import { templatesRoute } from './features/templates/routes.ts'
 
 const app = new Hono<AppEnv>()
 
@@ -41,7 +40,6 @@ const routes = app
   .route('/api/auth', authRoute)
   .route('/api/admin/slots', slotsRoute)
   .route('/api/admin/reservations', reservationsRoute)
-  .route('/api/admin/templates', templatesRoute)
   .route('/api/admin/settings', settingsRoute)
   .route('/api/admin/devices', devicesRoute)
   .route('/api/admin/logs', logsRoute)

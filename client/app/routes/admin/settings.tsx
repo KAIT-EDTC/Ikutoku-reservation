@@ -36,7 +36,7 @@ export default function SettingsPage({ loaderData: s, actionData }: Route.Compon
   const fe = errors?.fieldErrors ?? {}
   return (
     <>
-      <PageHeader title="全体設定" description="受付期間を変えると、ひな形からその期間のコマを作ります。" />
+      <PageHeader title="全体設定" />
       <div className={css({ display: 'flex', flexDirection: 'column', gap: 'lg', maxW: '640px' })}>
         {actionData && 'saved' in actionData && <Alert tone="success">保存しました。</Alert>}
         {errors?.error && <Alert>{errors.error}</Alert>}

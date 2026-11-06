@@ -25,7 +25,7 @@ export const kioskRoute = new Hono<AppEnv>()
       maxPeople: s.maxPeople,
       resetSeconds: s.resetSeconds,
       dates: dates.filter((d) => d >= nowJst().date),
-      slots: list.map((sl) => ({ id: sl.id, date: sl.date, startTime: sl.startTime, endTime: sl.endTime, ...slotState(sl, s) })),
+      slots: list.map((sl) => ({ id: sl.id, date: sl.date, product: sl.product, startTime: sl.startTime, endTime: sl.endTime, ...slotState(sl, s) })),
     })
   })
   .post('/reservations', validate('json', reserveSchema), async (c) => {
@@ -38,5 +38,5 @@ export const kioskRoute = new Hono<AppEnv>()
       throw badRequest('選択内容が正しくありません。')
     }
     const slot = (await db.select().from(slots).where(eq(slots.id, slotId)).get())!
-    return c.json({ code: r.code, people, date: slot.date, startTime: slot.startTime, endTime: slot.endTime }, 201)
+    return c.json({ code: r.code, people, date: slot.date, product: slot.product, startTime: slot.startTime, endTime: slot.endTime }, 201)
   })

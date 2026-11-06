@@ -7,6 +7,9 @@ export const tokens = defineTokens({
         "'Inter', system-ui, -apple-system, 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif",
     },
     mono: { value: "'JetBrains Mono', ui-monospace, Consolas, monospace" },
+    // 公開ページ（ポスターの UD丸ゴ_ラージ・UD角ゴ_ラージ に近い Google Fonts）
+    maru: { value: "'Zen Maru Gothic', 'Hiragino Maru Gothic ProN', 'Hiragino Sans', sans-serif" },
+    kaku: { value: "'BIZ UDPGothic', 'Hiragino Sans', 'Noto Sans JP', sans-serif" },
   },
   spacing: {
     xs: { value: '4px' },
@@ -66,6 +69,19 @@ export const semanticTokens = defineSemanticTokens({
       hover: { value: '#2563eb' },
       fg: { value: '#1d4ed8' },
       subtle: { value: 'rgba(59, 130, 246, 0.1)' },
+    },
+    /** 公開ページ。メカデミーのポスター（EDTC-Ikutokusai-26s-poster.ai）から取った色 */
+    poster: {
+      ink: { value: '#2c3456' },
+      text: { value: '#231916' },
+      orange: { value: '#f6ac22' },
+      teal: { value: '#42aaaa' },
+      tealLight: { value: '#5bbabb' },
+      red: { value: '#e24b28' },
+      paper: { value: '#faf9f8' },
+      grid: { value: '#ebe7e1' },
+      card: { value: '#fdfcfb' },
+      clip: { value: '#6a4c2e' },
     },
     discord: {
       DEFAULT: { value: '#5865F2' },
