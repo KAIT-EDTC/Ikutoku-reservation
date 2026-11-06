@@ -4,7 +4,7 @@ import { actionRaw, paperStyle, tapeStyle } from './styles'
 const sheetHeading = css.raw({ fontSize: { base: 'xl', md: '2xl' }, fontWeight: '700', color: 'poster.text', letterSpacing: '0.02em' })
 const sheetText = css({ mt: '10px', fontSize: { base: 'sm', md: 'md' }, lineHeight: '1.9', wordBreak: 'auto-phrase' })
 
-/** ポスター表面: タイトル・メカデミーの説明・会場の写真 */
+/** ポスター表面: タイトル・事前予約推奨（最初の画面に入れる）・メカデミーの説明・会場の写真 */
 export function Intro() {
   return (
     <section className={paperStyle} aria-labelledby="mecademy-title">
@@ -19,6 +19,28 @@ export function Intro() {
           />
         </h1>
         <img src="/mecademy/cube.svg" alt="" width={200} height={171} className={css({ flexShrink: 0, w: { base: '30%', md: '220px' }, h: 'auto' })} />
+      </div>
+
+      <div className={css({ mt: { base: '16px', md: '24px' }, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: { base: '10px 16px', md: '12px 24px' } })}>
+        <p
+          className={css({
+            px: { base: '14px', md: '22px' },
+            py: { base: '6px', md: '8px' },
+            bg: 'poster.red',
+            color: 'white',
+            fontFamily: 'kaku',
+            fontSize: { base: 'xl', md: '3xl' },
+            fontWeight: '700',
+            letterSpacing: '0.04em',
+          })}
+        >
+          事前予約推奨！
+        </p>
+        <p className={css({ fontSize: { base: 'sm', md: 'lg' }, fontWeight: '700', lineHeight: '1.6', wordBreak: 'auto-phrase' })}>
+          予約は会場の受付で行います。
+          <br />
+          このページからは予約できません。
+        </p>
       </div>
 
       <div className={css({ mt: { base: '20px', md: '36px' }, display: 'grid', gridTemplateColumns: { base: '1fr', md: '1fr 1fr' }, gap: { base: '28px', md: '40px' }, alignItems: 'start' })}>

@@ -14,20 +14,6 @@ export function Menu({ published, slots }: { published: boolean; slots: PublicSl
         <h2 id="oshinagaki-title">
           <img src="/mecademy/oshinagaki.svg" alt="おしながき" width={256} height={64} className={css({ display: 'block', w: { base: '200px', md: '280px' }, h: 'auto' })} />
         </h2>
-        <p
-          className={css({
-            px: { base: '14px', md: '22px' },
-            py: { base: '6px', md: '8px' },
-            bg: 'poster.red',
-            color: 'white',
-            fontFamily: 'kaku',
-            fontSize: { base: 'xl', md: '3xl' },
-            fontWeight: '700',
-            letterSpacing: '0.04em',
-          })}
-        >
-          事前予約推奨！
-        </p>
       </div>
 
       <div className={css({ position: 'relative', mt: { base: '20px', md: '32px' }, display: 'flex', flexDirection: 'column', gap: { base: '24px', md: '32px' } })}>
@@ -172,10 +158,7 @@ function Guide() {
         })}
       >
         <li>予約は会場の受付端末で行います。このページでは空き状況を確認できます。</li>
-        <li>受付端末で「日付 → 体験と時間 → 人数 → 確認」の順に選ぶと、予約番号が表示されます。</li>
-        <li>予約番号は画面を撮影して控えてください。スマホがない方にはスタッフが紙に書いてお渡しします。</li>
         <li>お名前や連絡先はお伺いしません。予約の取消・変更は、予約番号をスタッフにお伝えください。</li>
-        <li>中止や変更は、このページのお知らせでお知らせします。ご来場前にご確認ください。</li>
       </ol>
     </section>
   )
