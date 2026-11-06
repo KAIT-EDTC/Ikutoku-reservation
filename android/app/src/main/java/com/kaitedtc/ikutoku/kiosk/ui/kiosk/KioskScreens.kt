@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kaitedtc.ikutoku.kiosk.api.Products
@@ -379,7 +380,10 @@ private fun AvailabilityScreen(s: Step.Availability, vm: KioskViewModel) {
                     Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Kiosk.HeaderBottom, Kiosk.HeaderTop))).padding(start = 10.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(Products.name(product), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Column(Modifier.weight(1f)) {
+                        Text(Products.name(product), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(Products.of(product).info, color = Kiosk.Keyword, fontSize = 13.sp)
+                    }
                     if (list.any { it.bookable }) {
                         KioskButton({ vm.pickExperience(s.date, product) }, Modifier.width(104.dp), colors = Buttons.Green, minHeight = 40.dp, contentPadding = 2.dp) {
                             Text("予約する", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -491,14 +495,21 @@ private fun ExperiencesScreen(s: Step.Experiences, vm: KioskViewModel) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         groups.forEach { (product, slots) ->
             val open = slots.count { it.bookable }
+            val p = Products.of(product)
+            val fg = if (open > 0) Color.White else Color(0xFFE2E2E2)
             KioskButton({ vm.pickExperience(s.date, product) }, Modifier.fillMaxWidth(), enabled = open > 0, minHeight = 104.dp, contentPadding = 12.dp) {
-                Text(Products.name(product), color = if (open > 0) Color.White else Color(0xFFE2E2E2), fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    if (open > 0) "空きのある時間 ${open}つ" else "満席・受付終了",
-                    color = if (open > 0) Color.White else Color(0xFFE2E2E2),
-                    fontSize = 16.sp,
-                )
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(p.name, color = fg, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                        // 料金・対象年齢・持ち帰り（押せないときは目立たせない）
+                        Text(p.info, color = if (open > 0) Kiosk.Keyword else fg, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        if (p.description.isNotBlank()) {
+                            Text(p.description, color = if (open > 0) Color(0xFFDDDDDD) else fg, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                        Text(if (open > 0) "空きのある時間 ${open}つ" else "満席・受付終了", color = fg, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp))
+                    }
+                    if (open > 0) Text("▶", color = Color.White, fontSize = 22.sp, modifier = Modifier.padding(start = 8.dp))
+                }
             }
         }
     }
