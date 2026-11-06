@@ -2,6 +2,7 @@ package com.kaitedtc.ikutoku.kiosk.printer
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -60,7 +61,11 @@ object ReceiptRenderer {
     private var regular: Typeface = Typeface.DEFAULT
     private var bold: Typeface = Typeface.DEFAULT_BOLD
 
+    // 一番上のロゴ（白黒にした EDTC のロゴ。res/drawable-nodpi/receipt_logo.png）
+    private var logo: Bitmap? = null
+
     fun useFonts(context: Context) {
+        if (logo == null) logo = runCatching { BitmapFactory.decodeResource(context.resources, R.drawable.receipt_logo) }.getOrNull()
         runCatching {
             regular = ResourcesCompat.getFont(context, R.font.biz_ud_gothic_regular) ?: regular
             bold = ResourcesCompat.getFont(context, R.font.biz_ud_gothic_bold) ?: bold
@@ -70,7 +75,8 @@ object ReceiptRenderer {
     /** QR より上: 団体名・予約番号・体験・日時・人数 */
     fun renderTop(r: Receipt): Bitmap = draw { y0 ->
         var y = y0
-        if (r.title.isNotEmpty()) y = center(r.title, 28f, bold = true, y = y)
+        y = header(y)
+        if (r.title.isNotEmpty()) y = center(r.title, 24f, y = y)
         y = rule(y)
         y = center("予約番号", 26f, y = y)
         y = center(r.code, 120f, bold = true, y = y, letterSpacing = 0.1f)
@@ -104,6 +110,37 @@ object ReceiptRenderer {
             val fm = p.fontMetrics
             canvas.drawText(text, WIDTH / 2f, y - fm.ascent, p)
             return y + (fm.descent - fm.ascent) + 4f
+        }
+
+        /**
+         * ロゴと、その右に「KAIT EDTC」を1行で並べ、全体を中央に。
+         * 文字の大きさは「KAIT」「EDTC」を2段にしたときにロゴの高さに収まる大きさ（太字に縁取りを足して太く）
+         */
+        fun header(y: Float): Float {
+            val size = 96f
+            val gap = 14f
+            val text = "KAIT EDTC"
+            val p = paint(80f, bold = true).apply {
+                style = Paint.Style.FILL_AND_STROKE
+                strokeWidth = 2.5f
+            }
+            val b = android.graphics.Rect()
+            fun lineHeight(t: String) = p.getTextBounds(t, 0, t.length, b).let { b.height().toFloat() }
+            while (p.textSize > 20f && lineHeight("KAIT") + lineHeight("EDTC") + 8f > size) p.textSize -= 1f
+            // 1行にして紙の幅に入らなければ、さらに小さくする
+            val room = WIDTH - PAD * 2 - (logo?.let { size + gap } ?: 0f)
+            while (p.textSize > 20f && p.measureText(text) > room) p.textSize -= 1f
+            p.getTextBounds(text, 0, text.length, b)
+            val w = (logo?.let { size + gap } ?: 0f) + b.width()
+            var x = (WIDTH - w) / 2
+            logo?.let {
+                // 白黒のまま拡大・縮小する（ぼかすと感熱紙で灰色の点になる）
+                canvas.drawBitmap(it, null, android.graphics.RectF(x, y, x + size, y + size), Paint().apply { isFilterBitmap = false })
+                x += size + gap
+            }
+            // 文字の上下をロゴの上下中央にそろえる
+            canvas.drawText(text, x - b.left, y + (size - b.height()) / 2 - b.top, p)
+            return y + size + 6f
         }
 
         fun row(label: String, value: String, y: Float): Float {

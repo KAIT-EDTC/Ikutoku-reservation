@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 音声案内（v_*.wav）は名前で探して流すので、配布用ビルドの「使っていないリソースの削除」で消さない -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@raw/v_*" />

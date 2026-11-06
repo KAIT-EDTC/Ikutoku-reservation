@@ -28,6 +28,9 @@ sealed interface Step {
     data object Idle : Step
     data class Dates(val dates: List<String>) : Step
 
+    /** トップの「空き状況を見る」（見るだけ）。date の日の、全体験のコマ */
+    data class Availability(val dates: List<String>, val date: String, val slots: List<Slot>) : Step
+
     /** その日のコマ（全体験ぶん）。体験ごとの空きを出すため全部持つ */
     data class Experiences(val date: String, val slots: List<Slot>) : Step
 
@@ -123,7 +126,7 @@ class KioskViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun tick() {
         val timed = when (step) {
-            is Step.Dates, is Step.Experiences, is Step.Times, is Step.People, is Step.Confirm, is Step.Done, is Step.Failure -> true
+            is Step.Dates, is Step.Availability, is Step.Experiences, is Step.Times, is Step.People, is Step.Confirm, is Step.Done, is Step.Failure -> true
             else -> false
         }
         if (!timed || staffOpen || loading) {
@@ -153,6 +156,33 @@ class KioskViewModel(app: Application) : AndroidViewModel(app) {
                 fail("ただいま予約を受け付けている日はありません。", voice = "v_err_no_dates")
             } else {
                 step = Step.Dates(data.dates)
+            }
+        }
+    }
+
+    /** トップの「空き状況を見る」。date を省くと最初の日 */
+    fun showAvailability(date: String? = null) {
+        sounds.beep()
+        if (loading) return
+        loading = true
+        viewModelScope.launch {
+            try {
+                // 日付を指定しないときは、日付の一覧を読んでから最初の日のコマを読む
+                var data = api.load(date)
+                val d = date ?: data.dates.firstOrNull()
+                if (date == null && d != null) data = api.load(d)
+                notice = data.notice
+                maxPeople = data.maxPeople
+                resetSeconds = data.resetSeconds.coerceAtLeast(15)
+                touched()
+                if (d == null) fail("ただいま予約を受け付けている日はありません。", voice = "v_err_no_dates")
+                else step = Step.Availability(data.dates, d, data.slots)
+            } catch (e: ApiException) {
+                if (e.status == 401) unregistered() else fail(e.userMessage())
+            } catch (e: IOException) {
+                fail(e.userMessage(), voice = "v_err_network")
+            } finally {
+                loading = false
             }
         }
     }

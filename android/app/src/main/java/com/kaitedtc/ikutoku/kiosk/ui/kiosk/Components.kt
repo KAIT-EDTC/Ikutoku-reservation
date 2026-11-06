@@ -73,6 +73,11 @@ import com.kaitedtc.ikutoku.kiosk.api.Slot
 import com.kaitedtc.ikutoku.kiosk.ui.theme.Kiosk
 import com.kaitedtc.ikutoku.kiosk.util.Dates
 import kotlinx.coroutines.delay
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.withTransform
 
 // ---- ボタン ----------------------------------------------------------------
 
@@ -88,14 +93,20 @@ object Buttons {
     val Green = ButtonColors(Color(0xFF3CC63C), Color(0xFF149114), Color(0xFF0B4F0B), Color.White)
     val Orange = ButtonColors(Color(0xFFF7A040), Color(0xFFDB6F14), Color(0xFF8A4510), Color.White)
     val Red = ButtonColors(Color(0xFFF2554F), Color(0xFFC9201B), Color(0xFF7A100D), Color.White)
+    /** 選んでいないもの（空き状況のほかの日付など） */
+    val Unselected = ButtonColors(Color(0xFFE4E4E4), Color(0xFFBEBEBE), Color(0xFF8A8A8A), Color(0xFF555555))
+
+    /** 選んでいるもの（空き状況の日付など） */
+    val Selected = ButtonColors(Color(0xFFFFE97A), Color(0xFFF5C400), Color(0xFF8A6D00), Kiosk.Ink)
     internal val Off = ButtonColors(Color(0xFFB4B4B4), Color(0xFF9E9E9E), Color(0xFF8A8A8A), Color(0xFFDCDCDC))
 }
 
 private val EDGE = 3.dp
 
 /**
- * 券売機のボタン。下に影の厚みがあり、押すと沈む（60ms）。押せないときは薄い灰色。
- * 操作音は onClick の中で鳴らす（ViewModel の各操作が鳴らす）。
+ * 券売機のボタン。下に影の厚みがある。押すと、へこんで（明暗が逆になり少し暗くなる）縁がオレンジに光る。
+ * 離したあとも押した見た目を 0.15 秒残してから onClick する（どこを押したか分かるように。連打も防ぐ）。
+ * 押せないときは薄い灰色。操作音は onClick の中で鳴らす（ViewModel の各操作が鳴らす）。
  */
 @Composable
 fun KioskButton(
@@ -110,22 +121,38 @@ fun KioskButton(
 ) {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
+    val scope = rememberCoroutineScope()
+    var flashing by remember { mutableStateOf(false) }
+    val down = enabled && (pressed || flashing)
     val c = if (enabled) colors else Buttons.Off
-    val sink by animateDpAsState(if (pressed && enabled) EDGE - 1.dp else 0.dp, tween(60), label = "sink")
     val shape = RoundedCornerShape(corner)
     Box(
         modifier
-            .clickable(source, indication = null, enabled = enabled, onClick = onClick)
+            .clickable(source, indication = null, enabled = enabled) {
+                if (flashing) return@clickable
+                flashing = true
+                scope.launch {
+                    delay(150)
+                    flashing = false
+                    onClick()
+                }
+            }
             .padding(bottom = EDGE),
         propagateMinConstraints = true,
     ) {
-        Box(Modifier.matchParentSize().offset(y = EDGE).background(Color(0x66000000), shape))
+        // 下の影（押している間は消えて、ボタンが沈んだように見える）
+        if (!down) Box(Modifier.matchParentSize().offset(y = EDGE).background(Color(0x66000000), shape))
         Box(
             Modifier
-                .offset { IntOffset(0, sink.roundToPx()) }
+                .offset { IntOffset(0, if (down) (EDGE - 1.dp).roundToPx() else 0) }
                 .heightIn(min = minHeight)
-                .background(Brush.verticalGradient(listOf(c.top, c.bottom)), shape)
-                .border(1.5.dp, c.border, shape)
+                .background(
+                    // へこみ: 明暗を逆にして少し暗く
+                    if (down) Brush.verticalGradient(listOf(c.bottom.darken(0.3f), c.top.darken(0.15f)))
+                    else Brush.verticalGradient(listOf(c.top, c.bottom)),
+                    shape,
+                )
+                .border(if (down) 3.dp else 1.5.dp, if (down) Kiosk.Highlight else c.border, shape)
                 .padding(contentPadding),
             contentAlignment = Alignment.Center,
         ) {
@@ -133,6 +160,8 @@ fun KioskButton(
         }
     }
 }
+
+private fun Color.darken(f: Float) = Color(red * (1 - f), green * (1 - f), blue * (1 - f), alpha)
 
 /** 赤い丸の「取消」 */
 @Composable
@@ -309,24 +338,17 @@ fun DeviceIllustration(paper: Float, highlight: Float, modifier: Modifier = Modi
         // 券（取出口より上だけ見える）
         val ph = 50f * paper
         if (ph > 0f) {
-            r(58f, 58f - ph, 74f, ph, Color.White)
-            drawRect(Color(0xFF9E9E9E), Offset(58f * u, (58f - ph) * u), Size(74f * u, ph * u), style = Stroke(1.5f * u))
-            if (ph > 20f) for (k in 0..1) r(68f, 58f - ph + 10f + k * 12f, if (k == 1) 34f else 54f, 5f, Color(0xFFCFCFCF), 2f)
+            r(58f, 60f - ph, 74f, ph, Color.White)
+            drawRect(Color(0xFF9E9E9E), Offset(58f * u, (60f - ph) * u), Size(74f * u, ph * u), style = Stroke(1.5f * u))
+            if (ph > 20f) for (k in 0..1) r(68f, 60f - ph + 10f + k * 12f, if (k == 1) 34f else 54f, 5f, Color(0xFFCFCFCF), 2f)
         }
-        // 本体
-        r(30f, 64f, 130f, 182f, Color(0xFF2F2F2F), 18f)
-        r(42f, 54f, 106f, 26f, Color(0xFF444444), 8f)
-        r(52f, 58f, 86f, 4f, Color.Black, 2f)
-        // 画面
-        r(44f, 92f, 102f, 120f, Color(0xFF9DB7D6), 4f)
-        r(56f, 176f, 78f, 22f, Color(0xFF3A3A3A), 3f)
-        r(84f, 224f, 22f, 10f, Color(0xFF555555), 5f)
+        drawV1s(u)
         // 取出口を囲む橙の枠
         if (highlight > 0f) {
             drawRoundRect(
                 Kiosk.Highlight.copy(alpha = highlight),
-                topLeft = Offset(34f * u, 2f * u),
-                size = Size(122f * u, 82f * u),
+                topLeft = Offset(20f * u, 2f * u),
+                size = Size(150f * u, 116f * u),
                 cornerRadius = CornerRadius(8f * u),
                 style = Stroke(4f * u),
             )
@@ -340,7 +362,7 @@ fun DeviceIllustration(paper: Float, highlight: Float, modifier: Modifier = Modi
 @Composable
 fun DepartureBoard(date: String, slots: List<Slot>, modifier: Modifier = Modifier) {
     val pages = Products.group(slots)
-        .flatMap { (product, list) -> list.chunked(5).map { product to it } }
+        .flatMap { (product, list) -> list.chunked(4).map { product to it } }
         .ifEmpty { listOf("" to emptyList()) }
     var page by remember(slots) { mutableIntStateOf(0) }
     LaunchedEffect(pages.size) {
@@ -491,4 +513,110 @@ fun rememberAfter(ms: Long): Boolean {
         shown = true
     }
     return shown
+}
+
+/**
+ * 予約券の切り取り方（V1s にはカッターがない）: 上から出た券を手前（下）へ倒し、引っ張りながら斜めに切り取る。
+ * 3.6 秒で「出る → 手前へ倒す → 斜めに引いて端から切れる → 離れる」をくり返す。
+ */
+@Composable
+fun TearGuide(modifier: Modifier = Modifier) {
+    val t by rememberInfiniteTransition(label = "tear").animateFloat(
+        0f, 1f, infiniteRepeatable(tween(3600, easing = LinearEasing), RepeatMode.Restart), label = "t",
+    )
+    Canvas(modifier.size(width = 190.dp, height = 250.dp)) {
+        val u = size.width / 190f
+        fun r(x: Float, y: Float, w: Float, h: Float, c: Color, rad: Float = 0f) =
+            drawRoundRect(c, topLeft = Offset(x * u, y * u), size = Size(w * u, h * u), cornerRadius = CornerRadius(rad * u))
+        fun seg(a: Float, b: Float) = ((t - a) / (b - a)).coerceIn(0f, 1f)
+
+        drawV1s(u)
+
+        val slot = 60f
+        val out = seg(0f, 0.22f)            // 出てくる
+        val fold = seg(0.28f, 0.48f)        // 手前へ倒れる
+        val pull = seg(0.52f, 0.78f)        // 斜めに引いて切れる
+        val away = seg(0.78f, 0.9f)         // 離れる
+        if (t > 0.92f) return@Canvas
+        val len = 52f * out
+        // 倒れ具合: 上向き（-len）→ 下向き（+len）
+        val dy = -len * kotlin.math.cos(Math.PI * fold).toFloat()
+        val top = minOf(slot, slot + dy)
+        val h = kotlin.math.abs(dy).coerceAtLeast(1f)
+
+        withTransform({
+            translate(left = -40f * u * away, top = 70f * u * away)
+            // 斜めに引く: 右の付け根を支点に左下へ傾く
+            rotate(degrees = 22f * pull, pivot = Offset(132f * u, slot * u))
+        }) {
+            drawRect(Color.White, Offset(58f * u, top * u), Size(74f * u, h * u))
+            drawRect(Color(0xFF9E9E9E), Offset(58f * u, top * u), Size(74f * u, h * u), style = Stroke(1.5f * u))
+            if (h > 24f) for (k in 0..1) {
+                val y = if (dy < 0) top + 10f + k * 12f else top + h - 15f - k * 12f
+                r(68f, y, if (k == 1) 34f else 54f, 5f, Color(0xFFCFCFCF), 2f)
+            }
+            // 切れ目: 左端から右へ進む
+            if (pull > 0f) {
+                val p = androidx.compose.ui.graphics.Path()
+                val end = 58f + 74f * pull
+                var x = 58f
+                p.moveTo(x * u, slot * u)
+                var up = true
+                while (x < end) {
+                    x = minOf(end, x + 5f)
+                    p.lineTo(x * u, (slot + if (up) -2f else 2f) * u)
+                    up = !up
+                }
+                drawPath(p, Kiosk.Vermilion, style = Stroke(2f * u))
+            }
+        }
+
+        // 引く向きの矢印（倒れたあと、斜め下へ）
+        if (fold >= 1f && away == 0f) {
+            val a = 0.5f + 0.5f * kotlin.math.sin(t * 40f)
+            val c = Kiosk.Highlight.copy(alpha = 0.6f + 0.4f * a)
+            val sx = 158f; val sy = 96f; val ex = 116f; val ey = 156f
+            // 進む向きの単位ベクトルと、それに直交する向き
+            val dx = ex - sx; val dy2 = ey - sy
+            val l = kotlin.math.sqrt(dx * dx + dy2 * dy2)
+            val ux = dx / l; val uy = dy2 / l
+            val bx = ex - ux * 16f; val by = ey - uy * 16f
+            drawLine(c, Offset(sx * u, sy * u), Offset(bx * u, by * u), 6f * u)
+            val head = androidx.compose.ui.graphics.Path().apply {
+                moveTo(ex * u, ey * u)
+                lineTo((bx - uy * 10f) * u, (by + ux * 10f) * u)
+                lineTo((bx + uy * 10f) * u, (by - ux * 10f) * u)
+                close()
+            }
+            drawPath(head, c)
+        }
+    }
+}
+
+/**
+ * SUNMI V1s を正面から見た形（190×250 の座標）。緑の本体（受付で使う V1s の色）、上に丸いプリンタ部と紙の出口（y = 60）、
+ * 正面は黒いガラス面に画面。券は x = 58〜132 から出る
+ */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawV1s(u: Float) {
+    fun r(x: Float, y: Float, w: Float, h: Float, c: Color, rad: Float = 0f) =
+        drawRoundRect(c, topLeft = Offset(x * u, y * u), size = Size(w * u, h * u), cornerRadius = CornerRadius(rad * u))
+    val body = Color(0xFF2E9E62)
+    val bodyDark = Color(0xFF1E6E43)
+    // 本体
+    r(32f, 84f, 126f, 162f, body, 16f)
+    // プリンタ部（少し幅広で丸い）
+    drawRoundRect(
+        Brush.verticalGradient(listOf(Color(0xFF4CC285), body), startY = 50f * u, endY = 112f * u),
+        topLeft = Offset(24f * u, 50f * u), size = Size(142f * u, 62f * u), cornerRadius = CornerRadius(28f * u),
+    )
+    // 紙の出口（上の縁）
+    r(48f, 58f, 94f, 5f, Color(0xFF10301F), 2.5f)
+    r(48f, 63f, 94f, 2f, bodyDark, 1f)
+    // 正面の黒いガラス
+    r(40f, 104f, 110f, 134f, Color(0xFF151515), 10f)
+    // 画面
+    r(46f, 112f, 98f, 98f, Color(0xFF9DB7D6), 3f)
+    r(56f, 180f, 78f, 18f, Color(0xFF3A3A3A), 3f)
+    // 下のボタン（戻る・ホーム・一覧）
+    for (x in listOf(72f, 95f, 118f)) drawCircle(Color(0xFF555555), radius = 3.5f * u, center = Offset(x * u, 224f * u))
 }
