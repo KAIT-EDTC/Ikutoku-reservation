@@ -12,11 +12,12 @@ data class KioskData(
     val slots: List<Slot> = emptyList(),
 )
 
-/** status は shared/src/slots.ts の SlotStatus（ok / few / full / stopped / ended） */
+/** status は shared/src/slots.ts の SlotStatus（ok / few / full / stopped / ended）。product は体験の id（Products） */
 @Serializable
 data class Slot(
     val id: Int,
     val date: String,
+    val product: String = "",
     val startTime: String,
     val endTime: String,
     val status: String,
@@ -33,6 +34,7 @@ data class Reservation(
     val code: String,
     val people: Int,
     val date: String,
+    val product: String = "",
     val startTime: String,
     val endTime: String,
 )

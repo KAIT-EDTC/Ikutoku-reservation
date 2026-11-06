@@ -23,11 +23,16 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.IOException
 
-/** 受付の画面。待機 → 日付 → 時間 → 人数 → 確認 → 発券中 → 完了（docs/sunmi-v1s.md 4-5） */
+/** 受付の画面。待機 → 日付 → 体験 → 時間 → 人数 → 確認 → 発券中 → 完了（docs/sunmi-v1s.md 4-5） */
 sealed interface Step {
     data object Idle : Step
     data class Dates(val dates: List<String>) : Step
-    data class Times(val date: String, val slots: List<Slot>) : Step
+
+    /** その日のコマ（全体験ぶん）。体験ごとの空きを出すため全部持つ */
+    data class Experiences(val date: String, val slots: List<Slot>) : Step
+
+    /** 選んだ体験のコマだけ */
+    data class Times(val date: String, val product: String, val slots: List<Slot>) : Step
     data class People(val slot: Slot) : Step
     data class Confirm(val slot: Slot, val people: Int) : Step
     data object Issuing : Step
@@ -118,7 +123,7 @@ class KioskViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun tick() {
         val timed = when (step) {
-            is Step.Dates, is Step.Times, is Step.People, is Step.Confirm, is Step.Done, is Step.Failure -> true
+            is Step.Dates, is Step.Experiences, is Step.Times, is Step.People, is Step.Confirm, is Step.Done, is Step.Failure -> true
             else -> false
         }
         if (!timed || staffOpen || loading) {
@@ -154,7 +159,13 @@ class KioskViewModel(app: Application) : AndroidViewModel(app) {
 
     fun pickDate(date: String) {
         sounds.beep()
-        load(date) { data -> step = Step.Times(date, data.slots) }
+        load(date) { data -> step = Step.Experiences(date, data.slots) }
+    }
+
+    /** 体験を選んだ: 空き状況が変わっているかもしれないので読み直してから時間へ */
+    fun pickExperience(date: String, product: String) {
+        sounds.beep()
+        reloadTimes(date, product)
     }
 
     fun pickSlot(slot: Slot) {
@@ -170,18 +181,13 @@ class KioskViewModel(app: Application) : AndroidViewModel(app) {
     fun back() {
         sounds.beep()
         when (val s = step) {
-            is Step.Times -> load { step = Step.Dates(it.dates) }
-            is Step.People -> load(s.slot.date) { step = Step.Times(s.slot.date, it.slots) }
+            is Step.Experiences -> load { step = Step.Dates(it.dates) }
+            is Step.Times -> load(s.date) { step = Step.Experiences(s.date, it.slots) }
+            is Step.People -> reloadTimes(s.slot.date, s.slot.product)
             is Step.Confirm -> step = Step.People(s.slot)
             is Step.Failure -> s.back?.invoke() ?: reset()
             else -> reset()
         }
-    }
-
-    fun callStaff(reason: String = "まもなく係員がまいります") {
-        sounds.beep()
-        step = Step.CallStaff(reason)
-        startAlarm { sounds.chime() }
     }
 
     /** 確定: プリンタを確かめてから予約し、予約券を印刷する */
@@ -206,7 +212,7 @@ class KioskViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: ApiException) {
                 when (e.status) {
                     401 -> unregistered()
-                    409 -> fail(e.userMessage(), voice = if ("定員" in e.userMessage()) "v_err_full" else "v_err_stopped") { reloadTimes(c.slot.date) }
+                    409 -> fail(e.userMessage(), voice = if ("定員" in e.userMessage()) "v_err_full" else "v_err_stopped") { reloadTimes(c.slot.date, c.slot.product) }
                     else -> fail(e.userMessage()) { step = Step.People(c.slot) }
                 }
                 return@launch
@@ -258,7 +264,8 @@ class KioskViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---- 内部 --------------------------------------------------------------
 
-    private fun reloadTimes(date: String) = load(date) { step = Step.Times(date, it.slots) }
+    private fun reloadTimes(date: String, product: String) =
+        load(date) { data -> step = Step.Times(date, product, data.slots.filter { it.product == product }) }
 
     /** サーバーから受付の情報を読み、設定を更新してから next を呼ぶ */
     private fun load(date: String? = null, next: (com.kaitedtc.ikutoku.kiosk.api.KioskData) -> Unit) {
