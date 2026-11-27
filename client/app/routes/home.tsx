@@ -1,18 +1,32 @@
 import { useEffect } from 'react'
 import { useRevalidator } from 'react-router'
 import { css } from 'styled-system/css'
+import { Closed } from '~/features/mecademy/Closed'
 import { Intro, Venue } from '~/features/mecademy/Intro'
 import { Menu } from '~/features/mecademy/Menu'
 import { boxRaw } from '~/features/mecademy/styles'
 import { api, unwrap } from '~/lib/api'
 import type { Route } from './+types/home'
 
-export const meta: Route.MetaFunction = () => [
-  { title: 'KAIT EDTC メカデミー | さわってあそべる！ロボット教室' },
-  { name: 'description', content: 'KAIT工房で開催するEDTCのロボット教室「メカデミー」。体験の内容と予約の空き状況。' },
-]
+/**
+ * 幾徳祭が終わった期間は true。トップは終了のお知らせとEDTCのHPへの入口だけになり、空き状況のAPIも呼ばない。
+ * 来年の準備を始めるときに false に戻す（ポスターの内容・おしながきは Intro / Menu にそのまま残してある）
+ */
+const FESTIVAL_CLOSED = true
+
+export const meta: Route.MetaFunction = () =>
+  FESTIVAL_CLOSED
+    ? [
+        { title: 'KAIT EDTC メカデミー | また来年の幾徳祭で！' },
+        { name: 'description', content: 'EDTCのロボット教室「メカデミー」は今年の幾徳祭での開催を終了しました。ご来場ありがとうございました。' },
+      ]
+    : [
+        { title: 'KAIT EDTC メカデミー | さわってあそべる！ロボット教室' },
+        { name: 'description', content: 'KAIT工房で開催するEDTCのロボット教室「メカデミー」。体験の内容と予約の空き状況。' },
+      ]
 
 export async function clientLoader() {
+  if (FESTIVAL_CLOSED) return null
   return unwrap(api.public.$get())
 }
 
@@ -20,7 +34,11 @@ export { RouteErrorBoundary as ErrorBoundary } from '~/components/layout/RouteEr
 
 /** 公開トップ: ポスターの内容と、体験ごとの空き状況（F-01）。予約は会場の受付端末で行う */
 export default function HomePage({ loaderData }: Route.ComponentProps) {
-  const { published, notice, slots } = loaderData
+  if (!loaderData) return <Closed />
+  return <Open {...loaderData} />
+}
+
+function Open({ published, notice, slots }: NonNullable<Route.ComponentProps['loaderData']>) {
   const { revalidate } = useRevalidator()
 
   // スマホで開きっぱなしにしたページに戻ってきたら、空き状況を読み直す
